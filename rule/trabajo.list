@@ -36,6 +36,8 @@ DOMAIN-SUFFIX,pingpongx.com
 #系统
 DOMAIN-SUFFIX,vcaveman.com #山顶洞人
 DOMAIN-SUFFIX,quickconnect.cn #群晖
+DOMAIN-SUFFIX,fishcargo.co
+
 
 #企业查询
 DOMAIN-SUFFIX,qcc.com #企查查
@@ -67,4 +69,5 @@ DOMAIN-SUFFIX,coreldraw.com
 #临时
 DOMAIN-SUFFIX,accountboy.com
 DOMAIN-SUFFIX,snssdk.com
+DOMAIN-SUFFIX,cloudflare.com
 
