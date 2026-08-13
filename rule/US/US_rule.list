@@ -1,3 +1,13 @@
+# NAME: US_rule
+# 策略组: 🇺🇸 美国出口
+# 出口:
+#   在中国办公室 → JMS 洛杉矶
+#   在美国办公室 → DIRECT
+#   在哥伦比亚办公室 → JMS 洛杉矶
+# 说明: 归属美国的服务。判断标准是「服务在美国」，不是「我人在美国」。
 
-#美股
-DOMAIN-SUFFIX,schwab.com
+#券商
+DOMAIN-SUFFIX,schwab.com #嘉信理财
+DOMAIN-SUFFIX,lbkrs.com #长桥
+DOMAIN-SUFFIX,longbridgeapp.com #长桥
+DOMAIN-SUFFIX,wbrks.com #长桥

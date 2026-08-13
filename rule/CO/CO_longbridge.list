@@ -1,8 +1,0 @@
-# NAME: CO_longbridge
-# 策略组: 📈 长桥
-# 出口: 🇨🇴 哥伦比亚 ISP（select 手动固定，禁止自动切换）
-# 说明: 长桥证券（港美股券商）
-
-DOMAIN-SUFFIX,lbkrs.com
-DOMAIN-SUFFIX,longbridgeapp.com
-DOMAIN-SUFFIX,wbrks.com
