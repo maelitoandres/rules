@@ -4,12 +4,23 @@
 #   在美国/哥伦比亚办公室 → 回国节点（待补，见设计文档 §10.1）
 # 说明: 归属中国的服务。判断标准是「服务在中国」，不是「我人在中国」。
 
+#工作
+DOMAIN-SUFFIX,hgj.com
+DOMAIN-SUFFIX,nextsls.com
+DOMAIN-SUFFIX,healthoo.com
+DOMAIN-SUFFIX,logwingbooking.com
+DOMAIN-SUFFIX,weiyun001.com
+DOMAIN-SUFFIX,accountboy.com
+
 #船公司-中国站
 DOMAIN-SUFFIX,zimchina.com #以星中国
 DOMAIN-SUFFIX,matson.com.cn #美森中国
 DOMAIN-SUFFIX,msccargo.cn #MSC中国
 DOMAIN-SUFFIX,coscoshipping.com #中远海运
 DOMAIN-SUFFIX,sinotrans.com #中外运
+
+#物流
+DOMAIN-SUFFIX,hllep.com
 
 #办公
 DOMAIN-SUFFIX,sino56.com
@@ -38,20 +49,5 @@ DOMAIN-SUFFIX,volces.com #火山引擎
 #游戏
 DOMAIN-SUFFIX,mihoyo.com #米哈游
 DOMAIN-SUFFIX,miyoushe.com #米游社
-
-#其他
-DOMAIN-SUFFIX,weiyun001.com
-
-# ==========================================================
-# 以下域名归属待确认（设计文档 §5.1）
-# 暂置于此以保持迁移前的直连行为，确认后再调整归属。
-# 若属国际服务，应移至 GLOBAL/Global_rule.list
-# ==========================================================
-DOMAIN-SUFFIX,hgj.com
-DOMAIN-SUFFIX,nextsls.com
-DOMAIN-SUFFIX,healthoo.com
-DOMAIN-SUFFIX,logwingbooking.com
-DOMAIN-SUFFIX,hllep.com #物流
-DOMAIN-SUFFIX,accountboy.com
 DOMAIN-SUFFIX,kunluncan.com
 DOMAIN-SUFFIX,tcsdzz.com
