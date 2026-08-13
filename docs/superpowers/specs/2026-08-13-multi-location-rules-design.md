@@ -44,7 +44,7 @@ rules/
 │   │   ├── CO_social_rule.list   → 🇨🇴 CO社媒运营   59 条
 │   │   └── CO_crypto_rule.list   → 🇨🇴 CO冲浪快线   17 条
 │   ├── US/      🇺🇸 美国出口
-│   │   └── US_rule.list          → 🇺🇸 稳定专线      4 条
+│   │   └── US_rule.list          → 🇺🇸 快线      4 条
 │   ├── CN/      🇨🇳 中国出口
 │   │   └── CN_rule.list          → 🇨🇳 中国出口     27 条
 │   ├── GLOBAL/  🚀 通用代理
@@ -69,7 +69,7 @@ rules/
 ```
 custom_proxy_group=🇨🇴 CO社媒运营`select`(🇨🇴)
 custom_proxy_group=🇨🇴 CO冲浪快线`select`(🇨🇴)
-custom_proxy_group=🇺🇸 稳定专线`select`(🇺🇸)
+custom_proxy_group=🇺🇸 快线`select`(🇺🇸)
 custom_proxy_group=🇺🇸 冲浪快线`select`(🇺🇸)
 custom_proxy_group=🇨🇳 中国出口`select`[]DIRECT
 custom_proxy_group=📢 谷歌FCM`select`[]DIRECT`[]🇺🇸 冲浪快线
@@ -92,7 +92,7 @@ custom_proxy_group=🐟 漏网之鱼`select`[]🇺🇸 冲浪快线`[]DIRECT
 
 1. **一律 `select`，禁止 `url-test`**——节点固定；且运营账号最怕 IP 自动切换。
 2. **CO 组不含 `DIRECT`**——误选会让运营流量暴露本地真实 IP。
-3. **🇺🇸 稳定专线不含 `DIRECT`**——它被 socks5 的 `dialer-proxy` 引用，选中 DIRECT 会让桥接**静默退化为明文直连**。
+3. **🇺🇸 快线不含 `DIRECT`**——它被 socks5 的 `dialer-proxy` 引用，选中 DIRECT 会让桥接**静默退化为明文直连**。
 4. **漏网之鱼绝不含 🇨🇴 节点**——未匹配流量（广告追踪、软件更新、app 心跳）会迅速污染运营 IP 信誉。
 
 ### 三地映射
@@ -100,7 +100,7 @@ custom_proxy_group=🐟 漏网之鱼`select`[]🇺🇸 冲浪快线`[]DIRECT
 | ruleset | cn.ini | us.ini | co.ini |
 |---|---|---|---|
 | `CO_social` / `CO_crypto` | CO 住宅 IP | CO 住宅 IP | CO 住宅 IP |
-| `US_rule` | 🇺🇸 稳定专线 | **DIRECT** | 🇺🇸 稳定专线 |
+| `US_rule` | 🇺🇸 快线 | **DIRECT** | 🇺🇸 快线 |
 | `CN_rule` | **DIRECT** | 🇨🇳 中国出口 ⚠️ | 🇨🇳 中国出口 ⚠️ |
 | 国际服务 | 🇺🇸 冲浪快线 | **DIRECT** | **DIRECT** |
 | 漏网之鱼默认 | 冲浪快线 | DIRECT | DIRECT |
@@ -276,10 +276,10 @@ dialer-proxy   保留        ✅
 proxies:
   - {name: 🇨🇴 社媒, server: brd.superproxy.io, port: 22228, type: socks5,
      username: <...-ip-185.177.78.55>, password: <...>, udp: true,
-     dialer-proxy: "🇺🇸 稳定专线"}
+     dialer-proxy: "🇺🇸 快线"}
   - {name: 🇨🇴 加密, server: brd.superproxy.io, port: 22228, type: socks5,
      username: <...-ip-185.177.78.116>, password: <...>, udp: true,
-     dialer-proxy: "🇺🇸 稳定专线"}
+     dialer-proxy: "🇺🇸 快线"}
 ```
 
 ### 切换顺序（阶段 4）
