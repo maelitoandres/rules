@@ -1,0 +1,30 @@
+# NAME: Global_rule
+# 出口: 🚀 通用代理
+#   在中国办公室 → 洛杉矶
+#   在美国/哥伦比亚办公室 → DIRECT
+# 说明: 无特定地域归属的国际服务。这些站点在中国需要代理，在境外直连即可。
+
+#船公司-国际
+DOMAIN-SUFFIX,zim.com #以星
+DOMAIN-SUFFIX,matson.com #美森
+DOMAIN-SUFFIX,maersk.com #马士基
+DOMAIN-SUFFIX,cma-cgm.com #达飞
+DOMAIN-SUFFIX,hapag-lloyd.com #赫伯罗特
+DOMAIN-SUFFIX,one-line.com #ONE
+DOMAIN-SUFFIX,evergreen-marine.com #长荣
+DOMAIN-SUFFIX,hmm21.com #HMM
+DOMAIN-SUFFIX,yangming.com #阳明
+DOMAIN-SUFFIX,wanhai.com #万海
+DOMAIN-SUFFIX,pilship.com #PIL
+DOMAIN-SUFFIX,oocl.com #东方海外
+
+#国际快递
+DOMAIN-SUFFIX,fedex.com #联邦
+DOMAIN-SUFFIX,dhl.com #DHL
+
+#设计软件
+DOMAIN-SUFFIX,figma.com
+DOMAIN-SUFFIX,coreldraw.com
+
+#基础设施
+DOMAIN-SUFFIX,cloudflare.com
