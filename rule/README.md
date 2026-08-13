@@ -16,7 +16,7 @@
 rule/
 ├── CO/      🇨🇴 哥伦比亚出口（ISP 住宅 IP）
 │   ├── CO_social_rule.list   → 🇨🇴 CO社媒运营   59 条
-│   └── CO_crypto_rule.list   → 🇨🇴 CO加密货币   17 条
+│   └── CO_crypto_rule.list   → 🇨🇴 CO冲浪快线   17 条
 ├── US/      🇺🇸 美国出口
 │   └── US_rule.list          → 🇺🇸 美国出口      4 条
 ├── CN/      🇨🇳 中国出口
@@ -56,7 +56,7 @@ ruleset=🇨🇴 CO社媒运营,https://.../rules/rule/CO/CO_social_rule.list  �
 
 ```
 custom_proxy_group=🇨🇴 CO社媒运营`select`[]🇨🇴 哥伦比亚-家里`[]🇨🇴 哥伦比亚-公司`[]DIRECT
-custom_proxy_group=🇨🇴 CO加密货币`select`[]🇨🇴 哥伦比亚-公司`[]🇨🇴 哥伦比亚-家里`[]DIRECT
+custom_proxy_group=🇨🇴 CO冲浪快线`select`[]🇨🇴 哥伦比亚-公司`[]🇨🇴 哥伦比亚-家里`[]DIRECT
 ```
 
 不使用「只包一个节点的 `url-test` 包装组」——那是冗余的。业务组直接列出两个 IP 节点，在面板上手动固定其一。候选顺序即默认值：社媒默认走「家里」，加密货币默认走「公司」。
@@ -81,7 +81,7 @@ custom_proxy_group=🇨🇴 CO加密货币`select`[]🇨🇴 哥伦比亚-公司
 | 策略组 | 🇨🇳 中国办公室 | 🇺🇸 美国办公室 | 🇨🇴 哥伦比亚办公室 |
 |---|---|---|---|
 | 🇨🇴 CO社媒运营 | 哥伦比亚-家里 | 哥伦比亚-家里 | 哥伦比亚-家里 |
-| 🇨🇴 CO加密货币 | 哥伦比亚-公司 | 哥伦比亚-公司 | 哥伦比亚-公司 |
+| 🇨🇴 CO冲浪快线 | 哥伦比亚-公司 | 哥伦比亚-公司 | 哥伦比亚-公司 |
 | 🇺🇸 美国出口 | 洛杉矶 | **DIRECT** | 洛杉矶 |
 | 🇨🇳 中国出口 | **DIRECT** | 回国节点 ⚠️ | 回国节点 ⚠️ |
 | 🚀 通用代理 | 洛杉矶 | **DIRECT** | **DIRECT** |

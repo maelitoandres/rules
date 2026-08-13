@@ -28,10 +28,10 @@
 | 出口 | 解决的问题 | 服务对象 |
 |---|---|---|
 | 🇨🇴 BD 住宅 IP `.55` | **身份**——住宅 IP 信誉，平台风控看 IP 稳不稳 | 抖音、微博、小红书、微信视频号、TikTok 运营 |
-| 🇨🇴 BD 住宅 IP `.116` | **准入**——确保不是美国 IP | 加密货币平台 |
+| 🇨🇴 BD 住宅 IP `.116` | **准入**——确保不是美国 IP | 加密货币平台 + 哥伦比亚出口的日常需求 |
 | 🇺🇸 JMS 洛杉矶 | **常规**——美国出口 + socks5 桥接跳板 | Schwab、长桥、国际服务 |
 
-社媒与加密货币**必须用不同 IP**：交易所触发风控不应波及运营账号。这是唯一需要隔离的边界——抖音/微博/小红书之间无需再分。
+社媒与其余 CO 需求**必须用不同 IP**：`.55` 严格专用于运营（IP 信誉最敏感），`.116` 承担加密货币与日常杂项。交易所风控或日常流量都不应波及运营账号。这是唯一需要隔离的边界——抖音/微博/小红书之间无需再分。
 
 ---
 
@@ -42,7 +42,7 @@ rules/
 ├── rule/
 │   ├── CO/      🇨🇴 哥伦比亚出口
 │   │   ├── CO_social_rule.list   → 🇨🇴 CO社媒运营   59 条
-│   │   └── CO_crypto_rule.list   → 🇨🇴 CO加密货币   17 条
+│   │   └── CO_crypto_rule.list   → 🇨🇴 CO冲浪快线   17 条
 │   ├── US/      🇺🇸 美国出口
 │   │   └── US_rule.list          → 🇺🇸 稳定专线      4 条
 │   ├── CN/      🇨🇳 中国出口
@@ -68,7 +68,7 @@ rules/
 
 ```
 custom_proxy_group=🇨🇴 CO社媒运营`select`(🇨🇴)
-custom_proxy_group=🇨🇴 CO加密货币`select`(🇨🇴)
+custom_proxy_group=🇨🇴 CO冲浪快线`select`(🇨🇴)
 custom_proxy_group=🇺🇸 稳定专线`select`(🇺🇸)
 custom_proxy_group=🇺🇸 冲浪快线`select`(🇺🇸)
 custom_proxy_group=🇨🇳 中国出口`select`[]DIRECT
