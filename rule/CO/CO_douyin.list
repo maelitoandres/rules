@@ -1,4 +1,8 @@
-#抖音
+# NAME: CO_douyin
+# 策略组: 🎶 抖音
+# 出口: 🇨🇴 哥伦比亚 ISP（select 手动固定，禁止自动切换）
+# 说明: 字节跳动系：抖音、今日头条、西瓜视频、火山
+
 DOMAIN-SUFFIX,zijieapi.com
 DOMAIN-SUFFIX,bytednsdoc.com
 DOMAIN-SUFFIX,zjcdn.com
@@ -44,24 +48,3 @@ DOMAIN-SUFFIX,toutiaopage.com
 DOMAIN-SUFFIX,wukong.com
 DOMAIN-SUFFIX,zijieimg.com
 DOMAIN-SUFFIX,zjbyte.com
-
-# Sina
-DOMAIN-SUFFIX,leju.com
-DOMAIN-SUFFIX,miaopai.com
-DOMAIN-SUFFIX,sina.com
-DOMAIN-SUFFIX,sina.com.cn
-DOMAIN-SUFFIX,sina.cn
-DOMAIN-SUFFIX,sinaapp.com
-DOMAIN-SUFFIX,sinaapp.cn
-DOMAIN-SUFFIX,sinaimg.com
-DOMAIN-SUFFIX,sinaimg.cn
-DOMAIN-SUFFIX,weibo.com
-DOMAIN-SUFFIX,weibo.cn
-DOMAIN-SUFFIX,weibocdn.com
-DOMAIN-SUFFIX,weibocdn.cn
-DOMAIN-SUFFIX,xiaoka.tv
-
-#长桥
-DOMAIN-SUFFIX,lbkrs.com
-DOMAIN-SUFFIX,longbridgeapp.com
-DOMAIN-SUFFIX,wbrks.com
