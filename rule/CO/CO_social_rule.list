@@ -1,8 +1,11 @@
 # NAME: CO_social_rule
-# 策略组: 🎶 抖音
+# 策略组: 🇨🇴 CO补充
 # 出口: 哥伦比亚 ISP 住宅 IP（select 手动固定，禁止自动切换）
-# 说明: 字节跳动系：抖音/头条/西瓜/火山。上游 DouYin.list 的补充
+# 说明: 需要走 CO 节点、但上游规则集未覆盖的域名合集。
+#       在 ini 中排在所有 app 规则之后，只做兜底捡漏——
+#       抖音/微博/小红书等域名会先被各自的上游规则集精确命中。
 
+#字节跳动系
 DOMAIN-SUFFIX,zijieapi.com
 DOMAIN-SUFFIX,bytednsdoc.com
 DOMAIN-SUFFIX,zjcdn.com
@@ -48,3 +51,19 @@ DOMAIN-SUFFIX,toutiaopage.com
 DOMAIN-SUFFIX,wukong.com
 DOMAIN-SUFFIX,zijieimg.com
 DOMAIN-SUFFIX,zjbyte.com
+
+#新浪系
+DOMAIN-SUFFIX,leju.com
+DOMAIN-SUFFIX,miaopai.com
+DOMAIN-SUFFIX,sina.com
+DOMAIN-SUFFIX,sina.com.cn
+DOMAIN-SUFFIX,sina.cn
+DOMAIN-SUFFIX,sinaapp.com
+DOMAIN-SUFFIX,sinaapp.cn
+DOMAIN-SUFFIX,sinaimg.com
+DOMAIN-SUFFIX,sinaimg.cn
+DOMAIN-SUFFIX,weibo.com
+DOMAIN-SUFFIX,weibo.cn
+DOMAIN-SUFFIX,weibocdn.com
+DOMAIN-SUFFIX,weibocdn.cn
+DOMAIN-SUFFIX,xiaoka.tv
