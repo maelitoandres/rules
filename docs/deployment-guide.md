@@ -88,9 +88,15 @@ done
 |---|---|
 | **订阅地址** | `<JMS Mihomo/Clash.Meta YAML 订阅>` + `\|` + `<BD 节点 gist raw 链接>` |
 | **转换地址** | `http://127.0.0.1:25500/sub` |
-| **模板地址** | `https://raw.githubusercontent.com/maelitoandres/rules/main/cfg/<地区>.ini` |
+| **模板地址** | `https://cdn.jsdelivr.net/gh/maelitoandres/rules@main/cfg/<地区>.ini` |
 
 模板按办公室选择：`cn.ini` / `us.ini` / `co.ini`。**订阅地址三地完全相同**，差异只在模板。
+
+> ⚠️ **模板必须用 `cdn.jsdelivr.net`，不要用 `testingcf.jsdelivr.net`。**
+>
+> testingcf 虽然国内快 7 倍（0.8s vs 5.7s），但它是测试镜像、有独立缓存层，**`purge.jsdelivr.net` 清不掉**——改完 ini 后长达 12 小时仍返回旧版，subconverter 拿到的是过期模板，新加的 ruleset 静默消失，而面板上一切正常。定位这个问题曾耗掉一整晚。
+>
+> 模板是低频、小体积请求，5.7 秒完全可接受。规则文件（`rule/*.list`）走 raw 地址，不受此影响，改完立即生效。
 
 > `|` 是 subconverter 的多订阅源合并语法，JMS 节点由官方订阅提供（自动跟进 IP/参数变更），BD 的 socks5 节点手写在 gist 里。
 >
@@ -475,4 +481,45 @@ cp /root/openclash-known-good/统一节点管理.yaml /etc/openclash/
 
 配置直接可用，网络恢复后再更新订阅回到最新状态。
 
-> 若想彻底消除这个死锁，可把 ini 与规则的 URL 换成 `https://testingcf.jsdelivr.net/gh/maelitoandres/rules@main/...`（Cloudflare 中国优化节点，国内基本直连可达）。代价是 jsDelivr 有数小时缓存，改动不能立即生效——适合配置稳定后再切换。
+> 模板地址已用 `cdn.jsdelivr.net`（国内直连可达），死锁只影响规则文件的 raw 地址。规则有本地缓存（`interval: 86400`），断网期间沿用旧副本，不影响启动。
+
+---
+
+## 改完 ini 后必做：清 CDN 缓存
+
+`@main` 引用在 jsDelivr 上缓存 12 小时。改完 ini 推送后**必须 purge**，否则 subconverter 拿到的还是旧模板，改动看似生效实则没进配置：
+
+```bash
+for f in cfg/cn.ini cfg/us.ini cfg/co.ini; do
+  curl -s "https://purge.jsdelivr.net/gh/maelitoandres/rules@main/$f" | grep -o '"status":"[^"]*"'
+done
+# 期望输出三行 "status":"finished"
+```
+
+purge 后立即验证拿到的确实是新版：
+
+```bash
+curl -s "https://cdn.jsdelivr.net/gh/maelitoandres/rules@main/cfg/cn.ini" | grep -c '<你新加的关键字>'
+```
+
+**返回 0 就是缓存还没散**，此时更新订阅只会重新生成旧配置。改规则文件（`rule/*.list`）无需 purge——它们走 raw 地址。
+
+---
+
+## 触发订阅更新的正确命令
+
+面板「更新」按钮之外，命令行只有一条真正会重新生成配置：
+
+| 命令 | 行为 |
+|---|---|
+| `/usr/share/openclash/openclash.sh` | ✅ 下载订阅 → subconverter 转换 → 生成配置 → 重启 |
+| `/etc/init.d/openclash reload` | ❌ 只重载现有配置，不下载 |
+| `/usr/share/openclash/openclash_update.sh` | ❌ 直接调用无效果 |
+
+```bash
+nohup /usr/share/openclash/openclash.sh >/tmp/gen.log 2>&1 &
+sleep 100
+date -r /etc/openclash/统一节点管理.yaml   # 时间没变 = 没生成成功
+```
+
+另外，OpenClash 用 etag 判断订阅是否变化，**只改模板不改订阅地址时会提示「配置文件没有更新，停止继续操作」**。给订阅 URL 加个无害参数（`?v=2` → `?v=3`）即可绕过。
