@@ -7,29 +7,16 @@
 
 #字节跳动系
 DOMAIN-SUFFIX,zijieapi.com
-DOMAIN-SUFFIX,bytednsdoc.com
 DOMAIN-SUFFIX,zjcdn.com
 DOMAIN-SUFFIX,byteimg.com
-DOMAIN-SUFFIX,ecombdimg.com
-DOMAIN-SUFFIX,ecombdstatic.com
 DOMAIN-SUFFIX,jinritemai.com
 DOMAIN-SUFFIX,huoshanimg.com
-DOMAIN-SUFFIX,douyinvod.com
-DOMAIN-SUFFIX,douyincdn.com
-DOMAIN-SUFFIX,bytedns3.com
 DOMAIN-SUFFIX,bytelb.net
-DOMAIN-SUFFIX,toutiaoapi.com
 DOMAIN-SUFFIX,bytetos.com
 DOMAIN-SUFFIX,bytegecko.com
 DOMAIN-SUFFIX,zztfly.com
-DOMAIN-SUFFIX,ecombdapi.com
-DOMAIN-SUFFIX,douyin.com
-DOMAIN-SUFFIX,bytedns1.com
 DOMAIN-SUFFIX,amemv.com
-DOMAIN-SUFFIX,bytedns.com
-DOMAIN-SUFFIX,bytedns.net
 DOMAIN-SUFFIX,snssdk.com
-DOMAIN-SUFFIX,douyinpic.com
 DOMAIN-SUFFIX,bdxiguaimg.com
 DOMAIN-SUFFIX,bdxiguastatic.com
 DOMAIN-SUFFIX,byted-static.com
@@ -47,18 +34,16 @@ DOMAIN-SUFFIX,ibytedapm.com
 DOMAIN-SUFFIX,ixigua.com
 DOMAIN-SUFFIX,kspkg.com
 DOMAIN-SUFFIX,pstatp.com
-DOMAIN-SUFFIX,toutiao.com
-DOMAIN-SUFFIX,toutiao13.com
-DOMAIN-SUFFIX,toutiaocdn.com
-DOMAIN-SUFFIX,toutiaocdn.net
-DOMAIN-SUFFIX,toutiaocloud.com
-DOMAIN-SUFFIX,toutiaohao.com
-DOMAIN-SUFFIX,toutiaohao.net
-DOMAIN-SUFFIX,toutiaoimg.com
-DOMAIN-SUFFIX,toutiaopage.com
 DOMAIN-SUFFIX,wukong.com
 DOMAIN-SUFFIX,zijieimg.com
 DOMAIN-SUFFIX,zjbyte.com
+
+
+#—— 关键字规则：覆盖整个系列域名，避免逐个补充 ——
+DOMAIN-KEYWORD,bytedns #bytedns.com/.net/1/3/doc 等整个系列
+DOMAIN-KEYWORD,ecombd #ecombdapi/ecombdimg/ecombdstatic
+DOMAIN-KEYWORD,douyin #douyin.com/douyinpic/douyinvod/douyincdn
+DOMAIN-KEYWORD,toutiao #toutiao.com/toutiaoapi/toutiaocdn 等
 
 #新浪系
 DOMAIN-SUFFIX,leju.com
