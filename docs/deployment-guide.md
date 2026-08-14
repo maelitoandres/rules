@@ -1,0 +1,334 @@
+# 部署指南 — 本地 subconverter + OpenClash
+
+面向三地办公室（🇨🇳 中国 / 🇺🇸 美国 / 🇨🇴 哥伦比亚）的 iStoreOS 旁路由。
+中国办公室已按此流程部署完成并验证通过（2026-08-14）。
+
+---
+
+## 0. 为什么要本地 subconverter
+
+不用公共转换服务（如 `api.dler.io`）的三个理由：
+
+1. **凭证外泄** —— 公共服务会完整看到你的订阅链接和全部节点凭证；
+2. **静默丢字段** —— 实测 `api.dler.io` 会吃掉 `dialer-proxy`（桥接直接失效，且无任何报错）；
+3. **单点故障** —— 三地共用一个第三方服务，它挂了三地同时停更。
+
+---
+
+## 1. 前置条件
+
+| 项 | 要求 | 中国办公室实际 |
+|---|---|---|
+| 系统 | OpenWrt / iStoreOS | iStoreOS 24.10.8 x86_64 |
+| Docker | 已安装并运行 | 27.3.1 |
+| 内存 | ≥ 512 MB 空闲 | 16 GB（空闲 15.2 GB） |
+| 磁盘 | ≥ 200 MB | Docker 目录可用 1.8 GB |
+| OpenClash | 已安装 | luci-app-openclash 0.47.156 |
+
+---
+
+## 2. 部署 subconverter
+
+### ⚠️ 必须使用 fork 版镜像
+
+官方版 `tindy2013/subconverter` **不支持 VLESS**，转换时会**静默丢弃全部 VLESS 节点**（面板上不会有任何报错，你只会发现节点少了）。实测对比：
+
+| 镜像 | 版本 | VLESS Reality | `dialer-proxy` |
+|---|---|---|---|
+| `tindy2013/subconverter` | v0.9.0 | ❌ 4 个节点全丢 | — |
+| **`asdlokj1qpi23/subconverter`** | **v0.9.9** | ✅ 保留 | ✅ 保留 |
+
+### 部署命令
+
+```bash
+docker pull asdlokj1qpi23/subconverter:latest
+
+docker run -d --name subconverter --restart always \
+  --dns 223.5.5.5 --dns 119.29.29.29 \
+  -p 127.0.0.1:25500:25500 \
+  asdlokj1qpi23/subconverter:latest
+```
+
+**两个参数都不能省：**
+
+- **`--dns`** —— Docker 默认网桥不继承宿主机 DNS。缺了它容器内无法解析域名，转换会返回 `No nodes were found!`，日志里是 `Could not resolve host`。
+- **`-p 127.0.0.1:25500`** —— 只绑本机。不要绑 `0.0.0.0`，否则局域网内任何设备都能用你的转换服务。
+
+### ❌ 不要挂载 pref.toml
+
+曾尝试挂载自定义 `pref.toml` 来调低缓存，结果**整套配置被 subconverter 的默认模板覆盖**——策略组变成 `NETFLIX`/`广告拦截`/`运营劫持` 那一套，节点只剩 2 个。
+
+原因：容器内的 `/base/pref.toml` 实际是 `pref.example.toml` 的副本，里面自带 `snippets/groups.toml` 定义的 13 个默认组，会**覆盖 URL 传入的 `config` 参数**。
+
+如需清缓存，用命令而不是挂载：
+
+```bash
+docker exec subconverter sh -c "rm -rf /base/cache/*" && docker restart subconverter
+```
+
+### 验证
+
+```bash
+curl -s http://127.0.0.1:25500/version
+# 期望：subconverter v0.9.9-xxxxx backend
+
+# 容器内域名可达性（四个都应返回 200/301/404，不能是解析失败）
+for h in jmssub.net raw.githubusercontent.com gist.githubusercontent.com testingcf.jsdelivr.net; do
+  docker exec subconverter wget -q -O /dev/null -S "https://$h" 2>&1 | grep -oE "HTTP/[0-9.]+ [0-9]+" | head -1
+done
+```
+
+---
+
+## 3. 配置 OpenClash
+
+### 3.1 三处地址
+
+| 项 | 值 |
+|---|---|
+| **订阅地址** | `<JMS Mihomo/Clash.Meta YAML 订阅>` + `\|` + `<BD 节点 gist raw 链接>` |
+| **转换地址** | `http://127.0.0.1:25500/sub` |
+| **模板地址** | `https://raw.githubusercontent.com/maelitoandres/rules/main/cfg/<地区>.ini` |
+
+模板按办公室选择：`cn.ini` / `us.ini` / `co.ini`。**订阅地址三地完全相同**，差异只在模板。
+
+> `|` 是 subconverter 的多订阅源合并语法，JMS 节点由官方订阅提供（自动跟进 IP/参数变更），BD 的 socks5 节点手写在 gist 里。
+>
+> gist 链接**不要带 commit hash**——带 hash 的是快照，改了 gist 也不会更新。用 `.../raw/proxy.yaml` 这种形式。
+
+### 3.2 必须调整的开关
+
+```bash
+# 关闭 emoji 重写（见 §5.2）
+uci set openclash.@config_subscribe[0].emoji='false'
+
+# 启用自定义规则（否则 openclash_custom_rules.list 根本不会被读取）
+uci set openclash.config.enable_custom_clash_rules='1'
+
+# API 密码换成强密码（默认是 123456，且端口对整个局域网开放）
+uci set openclash.config.dashboard_password='<强密码>'
+
+uci commit openclash
+```
+
+> `external-controller` 无法改为 `127.0.0.1`——LuCI 的面板入口是让**浏览器直连** `路由器IP:9090`，改了就打不开 yacd。只能靠强密码防护。
+
+### 3.3 fake-ip-filter 调整
+
+若需要按域名劫持微信（见 §4.2），必须移除 `+.qq.com`：
+
+```bash
+F=/etc/openclash/custom/openclash_custom_fake_filter.list
+cp $F ${F}.bak-$(date +%s)
+sed -i "s|^+\.qq\.com$|# +.qq.com|" $F
+```
+
+**原因**：在 filter 里的域名走真实 DNS、拿到真实 IP，Clash 只看得到 IP 看不到域名，**基于域名的 `RULE-SET` 规则永远匹配不上**。
+
+前面那 9 条 QQ 音乐的精确条目要保留，只注释通配的 `+.qq.com`。
+
+---
+
+## 4. 运营 WiFi（可选，仅需要 IP 属地伪装时）
+
+### 4.1 网络层
+
+**主路由（UCG-Fiber）侧：**
+
+1. 新建 Network，VLAN ID 自定（中国办公室用 `2`），网段如 `10.1.9.0/24`
+2. Gateway IP 填 UCG 自己的地址（如 `10.1.9.1/24`，它会强制要求）
+3. **DHCP 里把默认网关和 DNS 都指向旁路由**（如 `10.1.9.2`）
+4. 新建 SSID 绑定该 VLAN
+5. 确认旁路由所在端口放行该 VLAN 的 tagged 帧
+
+**旁路由侧：**
+
+```bash
+# VLAN 子接口（vid 要和 UCG 上的一致）
+uci set network.vlan9=device
+uci set network.vlan9.type='8021q'
+uci set network.vlan9.ifname='br-lan'
+uci set network.vlan9.vid='2'
+uci set network.vlan9.name='br-lan.2'
+
+# 接口地址（即该网段的网关）
+uci set network.colombia=interface
+uci set network.colombia.device='br-lan.2'
+uci set network.colombia.proto='static'
+uci set network.colombia.ipaddr='10.1.9.2'
+uci set network.colombia.netmask='255.255.255.0'
+
+# 纳入 lan zone（继承 ACCEPT + masq）
+uci add_list firewall.@zone[0].network='colombia'
+
+# DHCP 交给 UCG，本机只提供 DNS 和网关
+uci set dhcp.colombia=dhcp
+uci set dhcp.colombia.interface='colombia'
+uci set dhcp.colombia.ignore='1'
+
+uci commit; /etc/init.d/network reload; /etc/init.d/firewall reload
+```
+
+**关键点：网关必须与客户端同网段。** UCG 上填 `10.1.9.2` 作为网关是可行的，前提是旁路由在该网段真的有这个地址——这正是上面 VLAN 接口的作用。跨网段的网关客户端 ARP 不到，包发不出去。
+
+**TPROXY 无需任何改动** —— OpenClash 的规则挂在 `mangle_prerouting` / `dstnat` hook 上且不绑定接口，新网段的流量会自动被接管。
+
+### 4.2 微信劫持规则
+
+写入 `/etc/openclash/custom/openclash_custom_rules.list`：
+
+```yaml
+rules:
+- AND,((SRC-IP-CIDR,10.1.9.0/24),(RULE-SET,WeChat)),💬 微信运营
+```
+
+效果分层：运营 WiFi 的微信 → 🇨🇴 节点（属地显示哥伦比亚）；其他设备的微信 → 各自策略组不受影响；运营设备的其他 app → 照常走全局策略。
+
+> `AND` 复合规则**必须写在这里**，不能写进 ini——subconverter 会把它的语法解析坏（策略组名被插到括号里、后半段被截断）。单条 `SRC-IP-CIDR` 则可以正常透传。
+
+---
+
+## 5. 部署后验证
+
+```bash
+# ① 节点数与策略组数
+sed -n '/^proxies:/,/^proxy-groups:/p' /etc/openclash/统一节点管理.yaml | grep -cE '^- name:'
+sed -n '/^proxy-groups:/,/^rule-providers:/p' /etc/openclash/统一节点管理.yaml | grep -c '^- name:'
+
+# ② 关键字段是否保留（VLESS Reality 与桥接）
+for k in vless reality-opts dialer-proxy socks5; do
+  printf "%-16s %s\n" "$k" "$(grep -c "$k" /etc/openclash/统一节点管理.yaml)"
+done
+
+# ③ 自定义规则是否在 rules 最前
+sed -n '/^rules:/,+2p' /etc/openclash/统一节点管理.yaml
+
+# ④ 节点可用性（含桥接）
+SEC=$(uci get openclash.config.dashboard_password)
+curl -s -H "Authorization: Bearer $SEC" \
+  "http://127.0.0.1:9090/proxies/<URL编码的节点名>/delay?timeout=8000&url=http%3A%2F%2Fwww.gstatic.com%2Fgenerate_204"
+```
+
+中国办公室的基准值：节点 5、策略组 40、`vless`/`reality-opts`/`dialer-proxy`/`socks5` 各 2。
+
+---
+
+## 6. 故障排查（实际踩过的坑）
+
+### 6.1 改了 ini 却不生效
+
+**三层缓存，逐层排查：**
+
+| 层 | 时长 | 清除方式 |
+|---|---|---|
+| GitHub raw CDN | ~5 分钟 | 无法控制，只能等；急用时改用 commit hash 的 URL |
+| subconverter | `cache_config` 默认 300s | `docker exec subconverter sh -c "rm -rf /base/cache/*" && docker restart subconverter` |
+| OpenClash | 需手动触发 | 见下 |
+
+### 6.2 两个命令的区别（最容易搞错）
+
+```
+/usr/share/openclash/openclash.sh      → 调用 subconverter 重新【生成】配置
+/etc/init.d/openclash restart          → 【重载】已有配置 + 应用自定义规则
+```
+
+- **改了 ini / 规则文件** → 用前者
+- **改了自定义规则或 UCI 开关** → 用后者
+- **两者都改了** → 先 `openclash.sh`，再 `restart`
+
+自定义规则由 `yml_rules_change.sh` 插入，而它只在 `/etc/init.d/openclash` 的启动流程中被调用——**光更新订阅永远不会应用自定义规则**。
+
+### 6.3 节点名的 emoji 丢失
+
+subconverter 的 `emoji` 参数语义是「**先剥掉原有的**，再决定要不要按内置规则重加」，不是「保留原样」：
+
+- `emoji=true` → 剥掉后按名字猜国家重加，「日本中转」会被猜成 🇯🇵，出现 `🇯🇵 🇺🇸 日本中转` 双国旗
+- `emoji=false` → 剥掉且不重加，订阅源自带的 🇨🇴 就没了
+
+**解法：`emoji=false` + 用 `rename` 补国旗**（rename 在 emoji 处理之后执行，写什么是什么）：
+
+```ini
+rename=JMS.*c55s3\..*@🇺🇸 CN2GIA
+rename=^社媒$@🇨🇴 社媒
+```
+
+### 6.4 策略组里出现意外的 DIRECT
+
+subconverter 对 `select` 组会自动补 `DIRECT` 且排在**首位**（即默认选中）。对运营组来说这意味着流量默认从本地真实 IP 出去。
+
+**解法：显式指定兜底项**
+
+```ini
+custom_proxy_group=🇺🇸 快线`select`(🇺🇸|CN2GIA|日本中转|直连备用)`[]REJECT
+```
+
+用 `REJECT` 而非 `DIRECT`：误选时连接立即失败、能马上发现，而不是静默泄露 IP。
+
+### 6.5 某个 app 走错策略组
+
+**规则先匹配先生效。** 若一个规则文件同时含多个 app 的域名，它只能指向一个策略组，排在后面的同类规则永远轮不到。
+
+实例：`CO_social_rule.list` 里含 `weibo.com`，而它当时指向「🎶 抖音」组 → 打开微博走进了抖音组。
+
+**解法**：把「补充/兜底」性质的规则文件排到所有 app 规则**之后**，指向独立的兜底组。
+
+### 6.6 yacd 看不到某个 app 的连接
+
+先确认 DNS 是否返回 fake-ip：
+
+```bash
+nslookup -port=7874 <域名> 127.0.0.1
+```
+
+- 返回 `198.18.x.x` → 走 Clash，正常
+- 返回真实 IP → 该域名被判定为直连
+
+配置里 `respect-rules: true` 会让 DNS **遵循规则的最终走向**：某域名对应的策略组当前若选中 `DIRECT`，就直接返回真实 IP、不给 fake-ip，流量在防火墙层就被 `china_ip_route` 放行了，自然不进 Clash。
+
+**从路由器本机测试会有偏差**（源 IP 是 `127.0.0.1`，规则判定不同）。准确的做法是经 Clash 实际发包：
+
+```bash
+curl -x http://127.0.0.1:7893 -s -o /dev/null https://<域名> &
+sleep 3
+curl -s -H "Authorization: Bearer $SEC" http://127.0.0.1:9090/connections \
+  | tr '{' '\n' | grep -i <关键字> | grep -oE '"host":"[^"]*"|"chains":\[[^]]*\]'
+```
+
+---
+
+## 7. 三地部署差异
+
+| | 🇨🇳 中国 | 🇺🇸 美国 | 🇨🇴 哥伦比亚 |
+|---|---|---|---|
+| 模板 | `cn.ini` | `us.ini` | `co.ini` |
+| 国际服务默认 | 🇺🇸 冲浪快线 | DIRECT | DIRECT |
+| 美国服务默认 | 🇺🇸 快线 | DIRECT | 🇺🇸 快线 |
+| 中国服务 | DIRECT | 回国节点 ⚠️ | 回国节点 ⚠️ |
+| socks5 桥接 | **必须**（GFW） | 建议保留（一致性） | 建议保留 |
+| 运营 WiFi | 已部署 | 按需 | 按需 |
+
+⚠️ 尚无中国落地节点，该组暂为 DIRECT，补节点后在 ini 填一行即可。
+
+订阅地址、gist、subconverter 部署方式三地完全一致，**只需改模板地址**。
+
+---
+
+## 8. 救急恢复
+
+配置损坏且无代理可用时会陷入死锁（Clash 起不来 → 没代理 → subconverter 拉不到 GitHub）。因此每地都应保留一份可用配置：
+
+```bash
+mkdir -p /root/openclash-known-good
+cp /etc/openclash/统一节点管理.yaml /root/openclash-known-good/
+```
+
+恢复：
+
+```bash
+cp /root/openclash-known-good/统一节点管理.yaml /etc/openclash/
+/etc/init.d/openclash restart
+```
+
+配置直接可用，网络恢复后再更新订阅回到最新状态。
+
+> 若想彻底消除这个死锁，可把 ini 与规则的 URL 换成 `https://testingcf.jsdelivr.net/gh/maelitoandres/rules@main/...`（Cloudflare 中国优化节点，国内基本直连可达）。代价是 jsDelivr 有数小时缓存，改动不能立即生效——适合配置稳定后再切换。
