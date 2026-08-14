@@ -165,6 +165,7 @@ sed -i "s|^  override-destination: false|  override-destination: true|" $F
 | 自定义规则开关 | `uci openclash.config.enable_custom_clash_rules` | `1` | 默认 0，不开则上一项完全不生效 |
 | emoji 处理 | `uci openclash.@config_subscribe[0].emoji` | `false` | 配合 ini 里的 rename 保留国旗 |
 | API 密码 | `uci openclash.config.dashboard_password` | 强密码 | 默认 `123456` 且端口对局域网开放 |
+| 自动清缓存钩子 | `custom/openclash_custom_overwrite.sh` | 见 §6.2.2 | 手动 restart 时自动拉取最新规则 |
 
 一次性配置命令：
 
@@ -281,18 +282,58 @@ curl -s -H "Authorization: Bearer $SEC" \
 | subconverter | `cache_config` 默认 300s | `docker exec subconverter sh -c "rm -rf /base/cache/*" && docker restart subconverter` |
 | OpenClash | 需手动触发 | 见下 |
 
-### 6.2 两个命令的区别（最容易搞错）
+### 6.2 改了东西不生效？先分清改的是哪一层
+
+这是本项目**最容易浪费时间的地方**，务必按下表对号入座：
+
+| 你改了什么 | 需要做什么 | 为什么 |
+|---|---|---|
+| **`rule/*.list`**（规则内容） | 清 provider 缓存 + `/etc/init.d/openclash restart` | provider 的 URL 没变，变的是 URL 背后的内容；主配置无需重新生成 |
+| **`cfg/*.ini`**（策略组结构） | 界面点「更新订阅」重新生成主配置 | 策略组、规则映射都写在主配置里 |
+| 自定义规则 / UCI 开关 | `/etc/init.d/openclash restart` | 由 `yml_rules_change.sh` 在启动流程中注入 |
+
+**三个命令的实际职责**：
 
 ```
-/usr/share/openclash/openclash.sh      → 调用 subconverter 重新【生成】配置
-/etc/init.d/openclash restart          → 【重载】已有配置 + 应用自定义规则
+界面「更新订阅」/ openclash.sh   → 调 subconverter 重新【生成主配置】
+/etc/init.d/openclash restart    → 重启服务：重载配置 + 注入自定义规则 + 重新拉取缺失的 provider
+/etc/init.d/openclash reload     → 仅重载，【不走 start_service】← 定时更新订阅走的是这条
 ```
 
-- **改了 ini / 规则文件** → 用前者
-- **改了自定义规则或 UCI 开关** → 用后者
-- **两者都改了** → 先 `openclash.sh`，再 `restart`
+⚠️ **最后一条尤其要注意**：cron 里的定时更新订阅走 `reload`，**不会触发 `start_service`**，因此挂在启动流程上的自定义脚本（如覆写钩子）在定时更新时不会执行。
 
-自定义规则由 `yml_rules_change.sh` 插入，而它只在 `/etc/init.d/openclash` 的启动流程中被调用——**光更新订阅永远不会应用自定义规则**。
+### 6.2.1 rule-provider 有独立的 24 小时缓存
+
+改了 `rule/*.list` 后最容易踩的坑：
+
+```yaml
+rule-providers:
+  CO_social_rule:
+    url: http://127.0.0.1:25500/getruleset?...
+    path: ./rule_provider/5496933961057482693.yaml
+    interval: 86400          ← 一天才更新一次
+```
+
+Clash 把规则**加载在内存里**，删掉 `rule_provider/*.yaml` 也不影响它继续运行，但同样不会主动重读。所以必须：
+
+```bash
+rm -rf /etc/openclash/rule_provider/*
+/etc/init.d/openclash restart      # 启动时发现文件缺失 → 重新拉取
+```
+
+> `interval` 由 subconverter 的服务端配置（`pref.toml` 的 `[[rulesets]]` 段）决定，**外部 ini 无法控制**——在 `ruleset=` 后加 `,3600` 实测无效。
+
+### 6.2.2 自动清缓存的覆写钩子
+
+`/etc/openclash/custom/openclash_custom_overwrite.sh` 在「配置生成后、Clash 启动前」执行，可在此自动清缓存：
+
+```bash
+LOG_OUT "Tip: Clearing subconverter and rule-provider cache..."
+docker exec subconverter sh -c "rm -rf /base/cache/*" >/dev/null 2>&1
+rm -rf /etc/openclash/rule_provider/* >/dev/null 2>&1
+```
+
+**生效范围**：手动 `restart` 时有效（已实测）；定时更新订阅走 `reload`，**不会触发**。所以它是「手动验证时的加速器」，不是「全自动方案」。
 
 ### 6.3 节点名的 emoji 丢失
 
@@ -362,6 +403,40 @@ webcast-core-m.amemv.com    🇨🇴 社媒 ← 🎶 抖音
 **这不是规则顺序问题**（先核对一下：`RULE-SET,DouYin` 的行号一定远小于 `GEOIP,CN`）。真正原因是 **§3.4 的 `override-destination`**——app 用缓存 IP 建连时匹配不到域名规则，掉到了 `GEOIP,CN`。按 §3.4 改完即可。
 
 若改完仍有个别域名落进「🐟 漏网之鱼」，说明那些域名没被任何规则覆盖，补进 `CO_social_rule.list` 即可。注意用 **`DOMAIN-KEYWORD`** 而非逐个写后缀——字节系惯用整个域名系列（`bytedns` / `bytedns1` / `bytedns3` / `bytednsdoc`…），逐个补永远补不完。
+
+### 6.8 重置 JMS 凭证后节点全部失效
+
+**JMS 订阅链接里的 `id` 参数就是 UUID 本身**，后台重置 UUID 时链接会一起失效：
+
+```
+旧链接返回: HTTP 200 但只有 22 字节，内容为 "Invalid parameters"
+→ subconverter 拿到 0 个节点
+→ 配置里只剩 gist 的 BD 节点 → Clash 无可用出口
+```
+
+**必须回 JMS 后台重新复制订阅链接**，然后更新 OpenClash 的订阅地址（保留 `|gist` 部分）。
+
+⚠️ 这一步会引发**死锁**：没有节点 → 访问不了 `raw.githubusercontent.com` → 拉不到 ini → 生成不了配置。
+
+**因此 ini 必须托管在 jsDelivr**（见 §3.1）。实测无代理时的可达性：
+
+```
+jmssub.net        ✅ 可达      gist.github  ✅ 可达
+jsdelivr(CN优化)  ✅ 可达      raw.github   ❌ 不可达
+```
+
+只要 ini 在 jsDelivr 上，换个订阅链接就能直接恢复，无需停 Clash 或还原备份。
+
+### 6.9 区分「配置损坏」与「凭证失效」
+
+两者症状不同，处理方式完全相反：
+
+| 症状 | 判断 | 处理 |
+|---|---|---|
+| Clash 起不来、配置为空 | 配置损坏 | `cp` known-good 备份 + restart |
+| **配置正常、策略组都在，但节点全连不上** | **凭证失效** | **去服务商后台复制新订阅链接** |
+
+**关键区分点：看策略组还在不在。** 策略组正常只是节点连不上 → 别浪费时间恢复备份。
 
 ---
 
