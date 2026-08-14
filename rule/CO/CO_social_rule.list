@@ -46,6 +46,15 @@ DOMAIN-KEYWORD,bytecdn #bytecdn.com 等字节 CDN
 DOMAIN-KEYWORD,douyin #douyin.com/douyinpic/douyinvod/douyincdn
 DOMAIN-KEYWORD,toutiao #toutiao.com/toutiaoapi/toutiaocdn 等
 
+#—— 监控发现的漏网域名（20分钟实测补充）——
+DOMAIN-SUFFIX,byteeffecttos.com #抖音特效/道具资源
+DOMAIN-SUFFIX,vodupload.com #视频上传
+DOMAIN-SUFFIX,ndcpp.com #抖音视频 CDN
+DOMAIN-SUFFIX,dailygn.com #创意素材
+DOMAIN-SUFFIX,365yg.com #今日头条视频
+DOMAIN-SUFFIX,faceu.mobi #Faceu 轻颜(字节)
+DOMAIN-SUFFIX,qishui.com #汽水音乐(字节)
+
 #新浪系
 DOMAIN-SUFFIX,leju.com
 DOMAIN-SUFFIX,miaopai.com
