@@ -127,6 +127,62 @@ sed -i "s|^+\.qq\.com$|# +.qq.com|" $F
 
 前面那 9 条 QQ 音乐的精确条目要保留，只注释通配的 `+.qq.com`。
 
+### 3.4 ⚠️ 嗅探器必须开启 override-destination
+
+**这一项不改，运营 IP 的效果会时灵时不灵。**
+
+```bash
+F=/etc/openclash/custom/openclash_custom_sniffer.yaml
+cp $F ${F}.bak-$(date +%s)
+sed -i "s|^  override-destination: false|  override-destination: true|" $F
+/etc/init.d/openclash restart
+```
+
+**为什么必须改**：OpenClash 默认的自定义嗅探配置里，全局 `override-destination` 是 `false`（只有 HTTP 段单独设为 true）。它的含义是「嗅探到域名后**不用它重新匹配规则**」。
+
+于是当 app 用缓存的真实 IP 直接发起 TLS 连接时：
+
+```
+匹配规则的瞬间 Clash 手上只有 IP → 所有域名规则落空
+  → 一路掉到最后的 GEOIP,CN → 走了直连
+  → 之后嗅探器才从 SNI 读出域名，但走向已成定局
+  → 监控里显示成「这个域名走了 DIRECT」，看起来像规则顺序错了
+```
+
+中国办公室实测：改之前字节系有 **9 个域名**走直连（抖音评论的 IP 属地因此忽变忽不变），改之后**降到 0**。
+
+覆盖范围：TLS/QUIC/HTTP 有 SNI 或 Host 头的连接都能救回；纯 TCP 无 SNI、或启用了 ECH 的连接仍无法还原域名。
+
+### 3.5 本地配置项清单（**不随仓库同步，每地必须手动配置**）
+
+仓库里只有 `cfg/*.ini` 和 `rule/*.list`。以下都是路由器本地的文件或 UCI 设置，**OpenClash 不支持从 URL 加载**，另外两地部署时必须逐项配置：
+
+| 配置项 | 位置 | 值 | 作用 |
+|---|---|---|---|
+| 嗅探重定向 | `custom/openclash_custom_sniffer.yaml` | `override-destination: true` | 见 §3.4，**最关键** |
+| fake-ip 过滤 | `custom/openclash_custom_fake_filter.list` | 注释掉 `+.qq.com` | 微信域名规则才能匹配 |
+| 自定义规则 | `custom/openclash_custom_rules.list` | 微信 AND 劫持规则 | 见 §4.2 |
+| 自定义规则开关 | `uci openclash.config.enable_custom_clash_rules` | `1` | 默认 0，不开则上一项完全不生效 |
+| emoji 处理 | `uci openclash.@config_subscribe[0].emoji` | `false` | 配合 ini 里的 rename 保留国旗 |
+| API 密码 | `uci openclash.config.dashboard_password` | 强密码 | 默认 `123456` 且端口对局域网开放 |
+
+一次性配置命令：
+
+```bash
+# 嗅探
+sed -i "s|^  override-destination: false|  override-destination: true|" \
+  /etc/openclash/custom/openclash_custom_sniffer.yaml
+# fake-ip
+sed -i "s|^+\.qq\.com$|# +.qq.com|" \
+  /etc/openclash/custom/openclash_custom_fake_filter.list
+# UCI
+uci set openclash.config.enable_custom_clash_rules='1'
+uci set openclash.@config_subscribe[0].emoji='false'
+uci set openclash.config.dashboard_password='<强密码>'
+uci commit openclash
+/etc/init.d/openclash restart
+```
+
 ---
 
 ## 4. 运营 WiFi（可选，仅需要 IP 属地伪装时）
@@ -293,6 +349,19 @@ sleep 3
 curl -s -H "Authorization: Bearer $SEC" http://127.0.0.1:9090/connections \
   | tr '{' '\n' | grep -i <关键字> | grep -oE '"host":"[^"]*"|"chains":\[[^]]*\]'
 ```
+
+### 6.7 某 app 的出口 IP 时灵时不灵
+
+典型症状：抖音评论的 IP 属地一会儿是哥伦比亚、一会儿是真实属地；监控里**同一个域名出现多条不同链路**：
+
+```
+webcast-core-m.amemv.com    DIRECT ← 🎯 全球直连
+webcast-core-m.amemv.com    🇨🇴 社媒 ← 🎶 抖音
+```
+
+**这不是规则顺序问题**（先核对一下：`RULE-SET,DouYin` 的行号一定远小于 `GEOIP,CN`）。真正原因是 **§3.4 的 `override-destination`**——app 用缓存 IP 建连时匹配不到域名规则，掉到了 `GEOIP,CN`。按 §3.4 改完即可。
+
+若改完仍有个别域名落进「🐟 漏网之鱼」，说明那些域名没被任何规则覆盖，补进 `CO_social_rule.list` 即可。注意用 **`DOMAIN-KEYWORD`** 而非逐个写后缀——字节系惯用整个域名系列（`bytedns` / `bytedns1` / `bytedns3` / `bytednsdoc`…），逐个补永远补不完。
 
 ---
 
