@@ -70,4 +70,3 @@ DOMAIN-SUFFIX,weibo.cn
 DOMAIN-SUFFIX,weibocdn.com
 DOMAIN-SUFFIX,weibocdn.cn
 DOMAIN-SUFFIX,xiaoka.tv
-DOMAIN-SUFFIX,zzz-cache-test.example #自动清缓存验证标记，验证后删除
