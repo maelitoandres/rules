@@ -7,7 +7,8 @@
 # 说明: 归属美国的服务。判断标准是「服务在美国」，不是「我人在美国」。
 
 #券商
-DOMAIN-SUFFIX,schwab.com #嘉信理财
-DOMAIN-SUFFIX,lbkrs.com #长桥
-DOMAIN-SUFFIX,longbridgeapp.com #长桥
-DOMAIN-SUFFIX,wbrks.com #长桥
+payload:
+  - DOMAIN-SUFFIX,schwab.com #嘉信理财
+  - DOMAIN-SUFFIX,lbkrs.com #长桥
+  - DOMAIN-SUFFIX,longbridgeapp.com #长桥
+  - DOMAIN-SUFFIX,wbrks.com #长桥

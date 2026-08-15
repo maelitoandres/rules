@@ -1,0 +1,52 @@
+# NAME: CN_rule
+# 出口: 🇨🇳 中国出口
+#   在中国办公室 → DIRECT
+#   在美国/哥伦比亚办公室 → 回国节点（待补，见设计文档 §10.1）
+# 说明: 归属中国的服务。判断标准是「服务在中国」，不是「我人在中国」。
+
+#工作
+payload:
+  - DOMAIN-SUFFIX,hgj.com
+  - DOMAIN-SUFFIX,nextsls.com
+  - DOMAIN-SUFFIX,healthoo.com
+  - DOMAIN-SUFFIX,logwingbooking.com
+  - DOMAIN-SUFFIX,weiyun001.com
+  - DOMAIN-SUFFIX,accountboy.com
+
+#船公司-中国站
+  - DOMAIN-SUFFIX,zimchina.com #以星中国
+  - DOMAIN-SUFFIX,matson.com.cn #美森中国
+  - DOMAIN-SUFFIX,msccargo.cn #MSC中国
+  - DOMAIN-SUFFIX,coscoshipping.com #中远海运
+  - DOMAIN-SUFFIX,sinotrans.com #中外运
+
+#物流
+  - DOMAIN-SUFFIX,hllep.com
+
+#办公
+  - DOMAIN-SUFFIX,sino56.com
+  - DOMAIN-SUFFIX,pingpongx.com #PingPong跨境支付
+
+#系统
+  - DOMAIN-SUFFIX,vcaveman.com #山顶洞人
+  - DOMAIN-SUFFIX,quickconnect.cn #群晖
+
+#企业查询
+  - DOMAIN-SUFFIX,qcc.com #企查查
+
+#MSDS
+  - DOMAIN-SUFFIX,hgmsds.com #合规化学
+
+#政府
+  - DOMAIN-SUFFIX,gov.cn
+
+#字节系
+  - DOMAIN-SUFFIX,51touxiang.com
+  - DOMAIN-SUFFIX,volceapplog.com #火山引擎
+  - DOMAIN-SUFFIX,volces.com #火山引擎
+
+#游戏
+  - DOMAIN-SUFFIX,mihoyo.com #米哈游
+  - DOMAIN-SUFFIX,miyoushe.com #米游社
+  - DOMAIN-SUFFIX,kunluncan.com
+  - DOMAIN-SUFFIX,tcsdzz.com

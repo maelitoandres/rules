@@ -9,9 +9,10 @@
 #    其他设备的微信不受影响。
 
 #视频号 Finder
-DOMAIN-KEYWORD,finder #finderbdy/finderdyh/finder.video 等整个系列
-DOMAIN-SUFFIX,channels.weixin.qq.com
-DOMAIN-SUFFIX,vweixinf.tc.qq.com
-DOMAIN-SUFFIX,vweixinthumb.tc.qq.com
-DOMAIN-SUFFIX,wxsnsdythumb.wxs.qq.com
-DOMAIN-SUFFIX,wxapp.tc.qq.com
+payload:
+  - DOMAIN-KEYWORD,finder #finderbdy/finderdyh/finder.video 等整个系列
+  - DOMAIN-SUFFIX,channels.weixin.qq.com
+  - DOMAIN-SUFFIX,vweixinf.tc.qq.com
+  - DOMAIN-SUFFIX,vweixinthumb.tc.qq.com
+  - DOMAIN-SUFFIX,wxsnsdythumb.wxs.qq.com
+  - DOMAIN-SUFFIX,wxapp.tc.qq.com
