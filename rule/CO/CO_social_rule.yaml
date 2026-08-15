@@ -66,6 +66,9 @@ payload:
   - DOMAIN-SUFFIX,sinaapp.cn
   - DOMAIN-SUFFIX,sinaimg.com
   - DOMAIN-SUFFIX,sinaimg.cn
+  - DOMAIN-SUFFIX,sinacloud.net #新浪云 2026-08-16实测漏走DIRECT
+  - DOMAIN-SUFFIX,sinacloud.com #新浪云(同系列一并收)
+  - DOMAIN-SUFFIX,sinajs.cn #新浪JS资源 img.t.sinajs.cn 2026-08-16实测漏走DIRECT
   - DOMAIN-SUFFIX,weibo.com
   - DOMAIN-SUFFIX,weibo.cn
   - DOMAIN-SUFFIX,weibocdn.com
