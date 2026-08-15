@@ -47,6 +47,17 @@ payload:
   - DOMAIN-KEYWORD,douyin #douyin.com/douyinpic/douyinvod/douyincdn
   - DOMAIN-KEYWORD,toutiao #toutiao.com/toutiaoapi/toutiaocdn 等
 
+# ★ 关键字兜底：客户端 DNS 解析失败时会自动附加搜索域重试，
+#   产生 xxx.sinaimg.cn.localdomain 这种域名。后缀变成 .localdomain 后
+#   DOMAIN-SUFFIX 规则完全失配，流量会掉进漏网之鱼走美国。
+#   实测漏网案例: ad.us.sinaimg.cn.localdomain / ads-img-al.xhscdn.com.localdomain
+#   关键字不受后缀影响，可覆盖这类变形。以下关键字均足够特异，不会误伤。
+  - DOMAIN-KEYWORD,weibo #weibo.com/.cn 及 .localdomain 变形
+  - DOMAIN-KEYWORD,weibocdn
+  - DOMAIN-KEYWORD,sinaimg #含 ad.us.sinaimg.cn.localdomain
+  - DOMAIN-KEYWORD,xhscdn #小红书CDN 含 ads-img-al.xhscdn.com.localdomain
+  - DOMAIN-KEYWORD,xiaohongshu
+
 #—— 监控发现的漏网域名（20分钟实测补充）——
   - DOMAIN-SUFFIX,byteeffecttos.com #抖音特效/道具资源
   - DOMAIN-SUFFIX,vodupload.com #视频上传
