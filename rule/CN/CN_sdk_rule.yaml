@@ -25,8 +25,11 @@ payload:
 #易通消息（与 jpush 同批出现，19000 端口）
   - DOMAIN-SUFFIX,easytomessage.com
 
-#腾讯云统计 / 微信 PCDN 上报
-  - DOMAIN-SUFFIX,tencent-cloud.net #含 apd-pcdnwxstat.teg.tencent-cloud.net
+#腾讯云统计上报
+# ⚠️ 不要写 DOMAIN-SUFFIX,tencent-cloud.net —— 那是腾讯云通用域名，会把
+#    微信相关流量一起强拉到 DIRECT，绕过「💬 微信运营 → 🇨🇴 社媒」的分流，
+#    与运营目标背道而驰。只收明确是统计上报的具体主机名。
+  - DOMAIN-KEYWORD,pcdnwxstat #apd-pcdnwxstat.teg.tencent-cloud.net 微信PCDN统计
 
 #手机厂商服务（系统更新、验证码、统计 SDK）
   - DOMAIN-SUFFIX,vivo.com.cn #含 onrt-stsdk / adlog / vcode / appupgrade
