@@ -28,4 +28,7 @@ payload:
   - DOMAIN-SUFFIX,coreldraw.com
 
 #基础设施
-  - DOMAIN-SUFFIX,cloudflare.com
+# cloudflare.com 已移出改为强制直连（见 cfg/*.ini 的内联规则）。
+# 原因: DOMAIN-SUFFIX 会把 time.cloudflare.com(NTP授时) 和
+#       cp.cloudflare.com(连通性检测) 一起拽去代理——授时绕行影响精度，
+#       连通性检测走代理会让系统误判网络状态。
