@@ -57,6 +57,8 @@ payload:
   - DOMAIN-KEYWORD,sinaimg #含 ad.us.sinaimg.cn.localdomain
   - DOMAIN-KEYWORD,xhscdn #小红书CDN 含 ads-img-al.xhscdn.com.localdomain
   - DOMAIN-KEYWORD,xiaohongshu
+  - DOMAIN-KEYWORD,snssdk #字节 mon.snssdk.com.localdomain 2026-08-16实测漏走美国
+  - DOMAIN-KEYWORD,amemv #抖音同系列，防 .localdomain 变形
 
 #—— 监控发现的漏网域名（20分钟实测补充）——
   - DOMAIN-SUFFIX,byteeffecttos.com #抖音特效/道具资源
@@ -106,3 +108,12 @@ payload:
 #   ⚠️ 不能用 IP-ASN 覆盖：新浪多数服务器托管在 AS4134(中国电信骨干网)，
 #      按 ASN 加会把整个电信网络导向 CO。只能按实测到的段逐个补。
   - IP-CIDR,36.51.224.0/24,no-resolve #新浪北京 AS37936 端口8081 2026-08-16实测
+
+# ★ ACE (AS139341) —— 小红书的海外 CDN
+#   实测抓到 5 个分散的段: 43.159.79 / 43.159.95 / 43.175.104 / 43.175.224 / 43.175.225
+#   (新加坡与美国 Tucumcari 混杂)。按 /24 逐个加容易漏，且 CDN 随时可能启用新段，
+#   故用 ASN 整体覆盖。
+#   ⚠️ ACE 是共享 CDN 服务商，其他中企出海业务也可能用它，加此规则会一并导向 CO。
+#      实测本网内只有小红书在跑这批 IP。若发现误伤，改回按 /24 精确覆盖。
+#   依赖 ASN.mmdb（已随 geox-url 自动更新，12MB，OpenClash 内置）
+  - IP-ASN,139341,no-resolve #ACE 小红书海外CDN 2026-08-16实测
