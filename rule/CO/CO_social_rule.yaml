@@ -99,3 +99,10 @@ payload:
   - IP-CIDR,98.96.229.0/24,no-resolve #Zenlayer 迈阿密
   - IP-CIDR,199.245.60.0/24,no-resolve #Zenlayer 迈阿密
   - IP-CIDR,128.14.118.0/24,no-resolve #Zenlayer 圣保罗
+
+# ★ 新浪自有服务器段（AS37936 SINA）
+#   微博用非标准端口 8081 硬编码 IP 直连自家北京服务器，无域名无 SNI，
+#   落在中国 IP 段被 GeoIP(cn) 判为国内 → 走 DIRECT，暴露真实 IP。
+#   ⚠️ 不能用 IP-ASN 覆盖：新浪多数服务器托管在 AS4134(中国电信骨干网)，
+#      按 ASN 加会把整个电信网络导向 CO。只能按实测到的段逐个补。
+  - IP-CIDR,36.51.224.0/24,no-resolve #新浪北京 AS37936 端口8081 2026-08-16实测
