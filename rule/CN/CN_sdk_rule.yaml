@@ -31,6 +31,14 @@ payload:
 #    与运营目标背道而驰。只收明确是统计上报的具体主机名。
   - DOMAIN-KEYWORD,pcdnwxstat #apd-pcdnwxstat.teg.tencent-cloud.net 微信PCDN统计
 
+#高德定位 SDK（被大量国产 App 集成）
+# 运营设备固定在办公场所内，不需要导航服务——这类请求纯属后台定位调度上报。
+# 走直连而非 CO 的理由: 高德的位置主要基于基站/WiFi/GPS 而非 IP，把它导向
+# 哥伦比亚也骗不过定位，反而多一次异常的跨境请求。
+# 实测: dispatcher.is.autonavi.com 来自运营网段设备，原走 ChinaMedia→DIRECT。
+  - DOMAIN-SUFFIX,autonavi.com #高德(NS 为 ns3/ns4.aliyun.com，阿里系)
+  - DOMAIN-SUFFIX,amap.com #高德地图主域名
+
 #手机厂商服务（系统更新、验证码、统计 SDK）
   - DOMAIN-SUFFIX,vivo.com.cn #含 onrt-stsdk / adlog / vcode / appupgrade
   - DOMAIN-SUFFIX,vivo.com
