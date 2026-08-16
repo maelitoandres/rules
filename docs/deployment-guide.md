@@ -144,7 +144,7 @@ ruleset=🎯 全球直连,clash-ipcidr:https://.../ChinaIp.yaml     # 纯 IP 列
 >
 > gist 链接**不要带 commit hash**——带 hash 的是快照，改了 gist 也不会更新。用 `.../raw/proxy.yaml` 这种形式。
 
-### 3.2 必须调整的开关
+### 3.4 必须调整的开关
 
 ```bash
 # 关闭 emoji 重写（见 §5.2）
@@ -161,7 +161,7 @@ uci commit openclash
 
 > `external-controller` 无法改为 `127.0.0.1`——LuCI 的面板入口是让**浏览器直连** `路由器IP:9090`，改了就打不开 yacd。只能靠强密码防护。
 
-### 3.3 fake-ip-filter 调整
+### 3.5 fake-ip-filter 调整
 
 若需要按域名劫持微信（见 §4.2），必须移除 `+.qq.com`：
 
@@ -175,7 +175,7 @@ sed -i "s|^+\.qq\.com$|# +.qq.com|" $F
 
 前面那 9 条 QQ 音乐的精确条目要保留，只注释通配的 `+.qq.com`。
 
-### 3.4 ⚠️ 嗅探器必须开启 override-destination
+### 3.6 ⚠️ 嗅探器必须开启 override-destination
 
 **这一项不改，运营 IP 的效果会时灵时不灵。**
 
@@ -201,15 +201,15 @@ sed -i "s|^  override-destination: false|  override-destination: true|" $F
 
 覆盖范围：TLS/QUIC/HTTP 有 SNI 或 Host 头的连接都能救回；纯 TCP 无 SNI、或启用了 ECH 的连接仍无法还原域名。
 
-### 3.5 本地配置项清单（**不随仓库同步，每地必须手动配置**）
+### 3.7 本地配置项清单（**不随仓库同步，每地必须手动配置**）
 
 仓库里只有 `cfg/*.ini` 和 `rule/*.yaml`。以下都是路由器本地的文件或 UCI 设置，**OpenClash 不支持从 URL 加载**，另外两地部署时必须逐项配置：
 
 | 配置项 | 位置 | 值 | 作用 |
 |---|---|---|---|
-| 嗅探重定向 | `custom/openclash_custom_sniffer.yaml` | `override-destination: true` | 见 §3.4，**最关键** |
+| 嗅探重定向 | `custom/openclash_custom_sniffer.yaml` | `override-destination: true` | 见 §3.6，**最关键** |
 | fake-ip 过滤 | `custom/openclash_custom_fake_filter.list` | 注释掉 `+.qq.com` | 微信域名规则才能匹配 |
-| 自定义规则 | `custom/openclash_custom_rules.list` | 微信 AND 劫持规则 | 见 §4.2 |
+| 自定义规则 | ` custom/openclash_custom_rules.list` | 微信 AND 劫持规则 | 见 §4.2 |
 | 自定义规则开关 | `uci openclash.config.enable_custom_clash_rules` | `1` | 默认 0，不开则上一项完全不生效 |
 | emoji 处理 | `uci openclash.@config_subscribe[0].emoji` | `false` | 配合 ini 里的 rename 保留国旗 |
 | API 密码 | `uci openclash.config.dashboard_password` | 强密码 | 默认 `123456` 且端口对局域网开放 |

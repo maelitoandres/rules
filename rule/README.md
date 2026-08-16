@@ -15,19 +15,28 @@
 ```
 rule/
 ├── CO/      🇨🇴 哥伦比亚出口（BD 住宅 IP）
-│   ├── CO_social_rule.yaml   → 🇨🇴 CO社媒运营   59 条
-│   └── CO_crypto_rule.list   → 🇨🇴 CO冲浪快线   17 条
+│   ├── CO_social_rule.yaml   → 🇨🇴 CO补充      63 条
+│   ├── CO_crypto_rule.yaml   → 🪙 加密货币     17 条
+│   └── CO_wechat_rule.yaml   → 💬 微信运营      6 条
 ├── US/      🇺🇸 美国出口
-│   └── US_rule.list          → 🇺🇸 快线          4 条
+│   └── US_rule.yaml          → 🇺🇸 美国服务     4 条
 ├── CN/      🇨🇳 中国出口
-│   └── CN_rule.list          → 🇨🇳 中国出口     27 条
+│   ├── CN_rule.yaml          → 🇨🇳 中国出口    26 条
+│   └── CN_sdk_rule.yaml      → 🎯 全球直连     17 条
 └── GLOBAL/  🚀 通用
-    └── Global_rule.list      → 🇺🇸 冲浪快线     17 条
+    └── Global_rule.yaml      → 🌎 国外媒体     16 条
 ```
 
-**一个文件 = 一个策略组。** 全库 124 条，无重复。
+**一个文件 = 一个策略组。** 全库 149 条。
 
-> `CO_crypto_rule.list` 对应的组叫「CO冲浪快线」而非「CO加密货币」——该组职责已扩展为「哥伦比亚出口的通用需求」，加密货币只是其中之一。文件名保留 `crypto` 是因为当前内容确实是加密货币域名。
+> **格式必须是 `payload:` 结构的 `.yaml`**，不能是裸 `.list`——ini 里用 `clash-classic:`
+> 前缀让 provider 直连时，subconverter 不输出 `format:` 字段，mihomo 默认按 yaml 解析。
+> 详见 [`docs/troubleshooting.md` §1](../docs/troubleshooting.md)。
+>
+> `CN_sdk_rule.yaml` 是唯一出口为「直连」的规则集——收录国内推送/统计 SDK（jpush、getui、
+> 厂商服务、NTP），这些服务器都在国内，绕代理既慢又暴露。
+
+> `CO_crypto_rule.yaml` 对应的组叫「CO冲浪快线」而非「CO加密货币」——该组职责已扩展为「哥伦比亚出口的通用需求」，加密货币只是其中之一。文件名保留 `crypto` 是因为当前内容确实是加密货币域名。
 
 ---
 
@@ -202,10 +211,12 @@ B 站接口实测与微博、小红书判定一致，是最实用的探针。**�
 
 ```
 社媒运营账号要用的？        → CO/CO_social_rule.yaml
-需要哥伦比亚 IP 的其他需求？ → CO/CO_crypto_rule.list
-是美国的服务？              → US/US_rule.list
-是中国的服务？              → CN/CN_rule.list
-以上都不是？                → GLOBAL/Global_rule.list
+微信视频号相关？            → CO/CO_wechat_rule.yaml
+需要哥伦比亚 IP 的其他需求？ → CO/CO_crypto_rule.yaml
+是美国的服务？              → US/US_rule.yaml
+是中国的服务？              → CN/CN_rule.yaml
+国内 SDK/统计/授时（走直连）？ → CN/CN_sdk_rule.yaml
+以上都不是？                → GLOBAL/Global_rule.yaml
 ```
 
 放进去就行——**三地自动生效，`cfg/*.ini` 一个字都不用改。**
@@ -213,7 +224,7 @@ B 站接口实测与微博、小红书判定一致，是最实用的探针。**�
 加完检查是否与其它文件重复：
 
 ```bash
-find rule -name '*.list' | xargs grep -hE '^DOMAIN' | sed 's/ *#.*//' | sort | uniq -d
+find rule -name '*.yaml' | xargs grep -hE '^  - DOMAIN' | sed 's/ *#.*//' | sort | uniq -d
 ```
 
 ---
