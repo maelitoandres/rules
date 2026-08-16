@@ -21,5 +21,9 @@
 # 判断归属的方法见 rule/README.md「加规则前的验证规范」——
 # NS 记录比对、IP 段整段抽查、关键字特异性评估。
 
+# 当前为空——所有已知域名都已归入对应 app 的规则集。
+# 新发现漏网域名时，先放这里让流量走对，确认归属后再移入对应 app 文件。
 payload:
-  - DOMAIN-SUFFIX,xiaoka.tv #秒拍/一直播 系列，跨微博与独立 app
+  - DOMAIN-SUFFIX,invalid-placeholder.example
+#   ↑ 占位条目。mihomo 的 classical provider 允许空 payload，但空文件在某些
+#     解析路径下会告警，留一条永不匹配的域名更稳妥。有真实条目后即可删除。

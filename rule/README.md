@@ -15,19 +15,39 @@
 ```
 rule/
 ├── CO/      🇨🇴 哥伦比亚出口（BD 住宅 IP）
-│   ├── CO_social_rule.yaml   → 🇨🇴 CO补充      63 条
+│   ├── CO_douyin_rule.yaml   → 🎶 抖音         32 条   ★ 与上游 DouYin 同组
+│   ├── CO_weibo_rule.yaml    → 📕 微博         26 条   ★ 与上游 Weibo 同组
+│   ├── CO_xhs_rule.yaml      → 📕 小红书        5 条   ★ 与上游 XiaoHongShu 同组
+│   ├── CO_wechat_rule.yaml   → 💬 微信运营      6 条
 │   ├── CO_crypto_rule.yaml   → 🪙 加密货币     17 条
-│   └── CO_wechat_rule.yaml   → 💬 微信运营      6 条
+│   └── CO_social_rule.yaml   → 🇨🇴 CO补充       0 条   兜底，新域名的临时落脚点
 ├── US/      🇺🇸 美国出口
 │   └── US_rule.yaml          → 🇺🇸 美国服务     4 条
 ├── CN/      🇨🇳 中国出口
 │   ├── CN_rule.yaml          → 🇨🇳 中国出口    26 条
-│   └── CN_sdk_rule.yaml      → 🎯 全球直连     17 条
+│   └── CN_sdk_rule.yaml      → 🎯 全球直连     17 条   国内SDK/统计/授时
 └── GLOBAL/  🚀 通用
     └── Global_rule.yaml      → 🌎 国外媒体     16 条
 ```
 
 **一个文件 = 一个策略组。** 全库 149 条。
+
+### ★ 补充规则必须与 app 主规则同组
+
+`CO_douyin_rule` / `CO_weibo_rule` / `CO_xhs_rule` 指向的是 **app 自己的策略组**
+（🎶 抖音 / 📕 微博 / 📕 小红书），不是独立的补充组。
+
+**原因**：补充规则若走独立的组，在面板切换该 app 的出口时不会跟着切，
+**同一个 app 的流量会从两个不同 IP 出去**——对运营账号而言，这比 IP 不对
+更容易触发风控。2026-08-16 实测撞到过：`🇨🇴 CO补充` 被重置为「🇨🇴 冲浪」
+而微博组是「🇨🇴 社媒」，微博流量分走了两个 IP。
+
+**ini 里的位置**：补充规则必须紧跟在对应上游规则集之后。
+
+```ini
+ruleset=🎶 抖音,clash-classic:.../Clash/DouYin/DouYin.yaml       # 上游 13 条
+ruleset=🎶 抖音,clash-classic:.../CO/CO_douyin_rule.yaml         # 自建补充 32 条
+```
 
 > **格式必须是 `payload:` 结构的 `.yaml`**，不能是裸 `.list`——ini 里用 `clash-classic:`
 > 前缀让 provider 直连时，subconverter 不输出 `format:` 字段，mihomo 默认按 yaml 解析。
@@ -210,9 +230,12 @@ B 站接口实测与微博、小红书判定一致，是最实用的探针。**�
 只需回答一个问题：**它该从哪个国家出去？**
 
 ```
-社媒运营账号要用的？        → CO/CO_social_rule.yaml
-微信视频号相关？            → CO/CO_wechat_rule.yaml
+抖音/字节系？               → CO/CO_douyin_rule.yaml
+微博/新浪系？               → CO/CO_weibo_rule.yaml
+小红书？                    → CO/CO_xhs_rule.yaml
+微信视频号？                → CO/CO_wechat_rule.yaml
 需要哥伦比亚 IP 的其他需求？ → CO/CO_crypto_rule.yaml
+归属未定 / 跨多个 app？      → CO/CO_social_rule.yaml（确认后再移走）
 是美国的服务？              → US/US_rule.yaml
 是中国的服务？              → CN/CN_rule.yaml
 国内 SDK/统计/授时（走直连）？ → CN/CN_sdk_rule.yaml
