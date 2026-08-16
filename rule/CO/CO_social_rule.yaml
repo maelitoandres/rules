@@ -59,6 +59,10 @@ payload:
   - DOMAIN-KEYWORD,xiaohongshu
   - DOMAIN-KEYWORD,snssdk #字节 mon.snssdk.com.localdomain 2026-08-16实测漏走美国
   - DOMAIN-KEYWORD,amemv #抖音同系列，防 .localdomain 变形
+  - DOMAIN-SUFFIX,bdurl.net #字节数据上报 dig.bdurl.net 2026-08-16实测漏走DIRECT
+#   ↑ 归属确认: NS 记录为 vip3/vip4.alidns.com，与 snssdk.com/amemv.com 完全一致，
+#     是字节系域名的共同特征。dig = data insight gather(埋点上报)，带真实 IP
+#     上报设备标识与网络环境，运营场景必须收进 CO。
 
 #—— 监控发现的漏网域名（20分钟实测补充）——
   - DOMAIN-SUFFIX,byteeffecttos.com #抖音特效/道具资源
