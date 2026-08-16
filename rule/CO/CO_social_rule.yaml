@@ -60,6 +60,8 @@ payload:
   - DOMAIN-KEYWORD,snssdk #字节 mon.snssdk.com.localdomain 2026-08-16实测漏走美国
   - DOMAIN-KEYWORD,amemv #抖音同系列，防 .localdomain 变形
   - DOMAIN-SUFFIX,bdurl.net #字节数据上报 dig.bdurl.net 2026-08-16实测漏走DIRECT
+  - DOMAIN-SUFFIX,bytehwm.com #字节字体资源 lf3/lf6-font-sign 2026-08-16实测漏走DIRECT
+  - DOMAIN-SUFFIX,bytemaimg.com #字节图片资源 p3-developer 2026-08-16实测漏走DIRECT
 #   ↑ 归属确认: NS 记录为 vip3/vip4.alidns.com，与 snssdk.com/amemv.com 完全一致，
 #     是字节系域名的共同特征。dig = data insight gather(埋点上报)，带真实 IP
 #     上报设备标识与网络环境，运营场景必须收进 CO。
