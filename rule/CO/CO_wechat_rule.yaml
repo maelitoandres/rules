@@ -24,3 +24,13 @@ payload:
 #                        wxqcloud.qq.com.cn → ns-tel1/ns-tel2.qq.com
   - DOMAIN-SUFFIX,qq.com.cn #含 mmec/prewxacode.wxqcloud.qq.com.cn、dns.weixin.qq.com.cn
   - DOMAIN-SUFFIX,wechatpay.cn #含 paydns.wechatpay.cn、szshort.mixpay.wechatpay.cn
+
+# ★ 微信启动时的固定检查（2026-08-16 实测，各出现 6 次，来自运营机 10.1.9.33）
+#   刷视频号期间出现，属微信启动流程的一组探测——拉配置、查套餐、探下载通道。
+#   都是小请求且连接随即关闭，不是大文件下载，走 CO 的代价可忽略。
+#   收进来是为了信号一致: 运营机上微信的每个动作都从哥伦比亚出去，不留混合痕迹。
+#   ⚠️ 若将来发现微信更新包也走 dldir1，需改为只收 chong.kingcard 单主机，
+#      避免几十 MB 的下载绕行地球一圈半。
+  - DOMAIN-SUFFIX,dldir1.qq.com #腾讯下载通道探测(IPv4)
+  - DOMAIN-SUFFIX,dldir1v6.qq.com #同上(IPv6)
+  - DOMAIN-SUFFIX,kingcard.qq.com #腾讯王卡套餐检测
