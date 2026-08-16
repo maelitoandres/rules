@@ -15,7 +15,7 @@
 ```
 rule/
 ├── CO/      🇨🇴 哥伦比亚出口（BD 住宅 IP）
-│   ├── CO_social_rule.list   → 🇨🇴 CO社媒运营   59 条
+│   ├── CO_social_rule.yaml   → 🇨🇴 CO社媒运营   59 条
 │   └── CO_crypto_rule.list   → 🇨🇴 CO冲浪快线   17 条
 ├── US/      🇺🇸 美国出口
 │   └── US_rule.list          → 🇺🇸 快线          4 条
@@ -107,12 +107,101 @@ custom_proxy_group=🇺🇸 冲浪快线`select`(🇺🇸)
 
 ---
 
+## 🔍 加规则前的验证规范
+
+2026-08-16 的实测总结。**加错规则比不加更糟**——误伤会把无关流量导向运营 IP，
+污染画像且极难察觉。
+
+### 1. 域名归属怎么确认：NS 记录比对
+
+域名名字看不出归属时（如 `bdurl.net`），查它的 NS 记录跟已知域名对照：
+
+```bash
+for d in bdurl.net snssdk.com amemv.com; do
+  echo "$d → $(dig +short NS $d | head -2 | tr '\n' ' ')"
+done
+# bdurl.net   → vip3/vip4.alidns.com
+# snssdk.com  → vip4/vip3.alidns.com   ← 已知字节域名
+# amemv.com   → vip3/vip4.alidns.com   ← 已知字节域名
+# 三者一致 → 确认 bdurl.net 属字节
+```
+
+比查 whois 有效——域名注册信息大多有隐私保护，查不到持有者。
+
+### 2. IP 段什么时候能加：整段抽查归属
+
+**只有整段归属单一时才能加**。抽查段内 4~5 个点：
+
+```bash
+for ip in 36.51.224.1 36.51.224.100 36.51.224.200 36.51.224.254; do
+  curl -s "http://ip-api.com/line/$ip?fields=isp,as" | tr '\n' ' '
+done
+```
+
+| 情况 | 判定 | 实例 |
+|---|---|---|
+| 全段同一自有 ASN | ✅ 可加 | `36.51.224.0/24` → AS37936 SINA（新浪自有） |
+| 独立 CDN 服务商段 | ⚠️ 可加但标注风险 | EdgeNext / Zenlayer / ACE（共享 CDN，其他中企出海也用） |
+| **运营商骨干网段** | ❌ **绝不可加** | 抖音备用 IP 落在移动 AS56044/56047、联通 AS17623/17816/136958、金山云 AS141679 |
+| **公有云段** | ❌ **绝不可加** | 金山云、阿里云的通用段，跑着大量不同客户 |
+
+**关键认知**：很多 App 租用第三方基础设施，**IP 归属显示的是「房东」不是「租户」**。
+抖音的服务器散落在移动/联通/金山云的段里，段内绝大部分 IP 属于别人——这类只能靠域名规则覆盖。
+
+### 3. ASN 规则什么时候用
+
+```yaml
+- IP-ASN,139341,no-resolve   # ✅ ACE，专营 CDN，覆盖面可控
+- IP-ASN,24429               # ❌ 阿里云整个海外网络，覆盖面远超小红书
+- IP-ASN,4134                # ❌ 中国电信骨干网，会把整个电信导向 CO
+```
+
+判据：**该 ASN 是否只服务单一主体**。CDN 服务商可以考虑，运营商/公有云绝对不行。
+
+依赖 `ASN.mmdb`（随 `geox-url` 自动更新，OpenClash 内置）。
+
+### 4. 什么时候该用关键字替代逐条
+
+当域名池是**开放集合**时。字节曾逐个收录 17 个 `byte*` 域名，2026-08-16 一天内
+又新增 `bdurl`/`bytehwm`/`bytemaimg` 三个——追补没有尽头，最终合并为：
+
+```yaml
+- DOMAIN-KEYWORD,byte    # 替代 17 条 DOMAIN-SUFFIX
+```
+
+**选关键字的标准是特异性**：
+
+| 关键字 | 判断 |
+|---|---|
+| `byte` / `weibo` / `xhscdn` / `sinaimg` / `douyin` | ✅ 足够独特 |
+| `sina` | ⚠️ 可能误伤（`sinatra.com`） |
+| `cn` / `api` / `cdn` | ❌ 灾难 |
+
+关键字还有个额外好处：**能兜住 `.localdomain` 变形**（DNS 解析失败时系统会附加搜索域重试，
+`DOMAIN-SUFFIX` 会完全失配）。
+
+### 5. IP 属地怎么验证：用国内库，不是国际库
+
+**国际库判对不算数**。同一个 IP，ip-api 和 RIPE 都说哥伦比亚，国内库却判美国迈阿密——
+微博和小红书用的正是后者。
+
+```bash
+curl --proxy "socks5h://<凭证>@<入口>" \
+     "https://api.bilibili.com/x/web-interface/zone"
+# {"addr":"185.177.78.55","country":"美国","province":"佛罗里达州","city":"迈阿密"}
+```
+
+B 站接口实测与微博、小红书判定一致，是最实用的探针。**换 IP 前先跑这条，返回目标国家
+才值得买**——几秒验证一个段，比买完再发评论试错快得多。
+
+---
+
 ## 怎么加一个新域名
 
 只需回答一个问题：**它该从哪个国家出去？**
 
 ```
-社媒运营账号要用的？        → CO/CO_social_rule.list
+社媒运营账号要用的？        → CO/CO_social_rule.yaml
 需要哥伦比亚 IP 的其他需求？ → CO/CO_crypto_rule.list
 是美国的服务？              → US/US_rule.list
 是中国的服务？              → CN/CN_rule.list

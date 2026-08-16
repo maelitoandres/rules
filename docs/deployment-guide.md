@@ -96,7 +96,49 @@ done
 >
 > testingcf 虽然国内快 7 倍（0.8s vs 5.7s），但它是测试镜像、有独立缓存层，**`purge.jsdelivr.net` 清不掉**——改完 ini 后长达 12 小时仍返回旧版，subconverter 拿到的是过期模板，新加的 ruleset 静默消失，而面板上一切正常。定位这个问题曾耗掉一整晚。
 >
-> 模板是低频、小体积请求，5.7 秒完全可接受。规则文件（`rule/*.list`）走 raw 地址，不受此影响，改完立即生效。
+> 模板是低频、小体积请求，5.7 秒完全可接受。
+
+> ⚠️ **规则集（`rule/*.yaml`）必须走 raw 直连，把 `github_address_mod` 设为 `0`。**
+>
+> ```bash
+> uci set openclash.config.github_address_mod="0"
+> uci commit openclash
+> ```
+>
+> jsDelivr 的边缘节点传播严重滞后——实测同一时刻 `cdn` 落后 3 个 commit（60 条 vs 本地 71 条）、
+> `fastly` 落后 1 个，purge 返回 `finished` 也不管用。规则集改动频繁，必须实时生效。
+> Clash 直连 `raw.githubusercontent.com` 实测正常（200 / 0.68s）。
+
+### 3.2 ★ subconverter 容器必须指定 DNS
+
+```bash
+docker run -d --name subconverter --restart always \
+  -p 127.0.0.1:25500:25500 -e TZ=Africa/Abidjan \
+  --dns 10.1.2.2 --dns 223.5.5.5 \
+  asdlokj1qpi23/subconverter:latest
+```
+
+`--dns 10.1.2.2` 指向路由器的 dnsmasq。**不加这个，关闭「绕过中国大陆 IP」后订阅转换必挂**——
+Docker 网段的 UDP DNS 查询在 TPROXY 层穿不过去（TCP 通、UDP 不通），容器报
+`Could not resolve host`，更新订阅卡死。
+
+> 用 `docker exec` 改 `/etc/resolv.conf` 只是临时的，容器重启就还原。必须写进启动参数。
+
+### 3.3 ★ 规则集用 `clash-classic:` 前缀直连
+
+ini 里所有 `ruleset=` 行必须带类型前缀，否则 provider 会指向本地容器，
+**容器一挂全部规则集归零、分流崩溃**：
+
+```ini
+ruleset=🎶 抖音,clash-classic:https://raw.githubusercontent.com/.../DouYin.yaml
+ruleset=🎯 全球直连,clash-ipcidr:https://.../ChinaIp.yaml     # 纯 IP 列表用 ipcidr
+```
+
+三个前提：① 目标必须是 `payload:` 格式的 `.yaml`（不能是裸 `.list`）；
+② 内容是纯 IP 段的用 `clash-ipcidr:`，含规则类型的用 `clash-classic:`；
+③ 订阅设置里「使用规则集」保持开启（对应 `expand=false`）。
+
+详见 [`troubleshooting.md` §1](./troubleshooting.md)。
 
 > `|` 是 subconverter 的多订阅源合并语法，JMS 节点由官方订阅提供（自动跟进 IP/参数变更），BD 的 socks5 节点手写在 gist 里。
 >
@@ -161,7 +203,7 @@ sed -i "s|^  override-destination: false|  override-destination: true|" $F
 
 ### 3.5 本地配置项清单（**不随仓库同步，每地必须手动配置**）
 
-仓库里只有 `cfg/*.ini` 和 `rule/*.list`。以下都是路由器本地的文件或 UCI 设置，**OpenClash 不支持从 URL 加载**，另外两地部署时必须逐项配置：
+仓库里只有 `cfg/*.ini` 和 `rule/*.yaml`。以下都是路由器本地的文件或 UCI 设置，**OpenClash 不支持从 URL 加载**，另外两地部署时必须逐项配置：
 
 | 配置项 | 位置 | 值 | 作用 |
 |---|---|---|---|
@@ -274,9 +316,50 @@ curl -s -H "Authorization: Bearer $SEC" \
 
 中国办公室的基准值：节点 5、策略组 40、`vless`/`reality-opts`/`dialer-proxy`/`socks5` 各 2。
 
+### 5.1 ★ 每次重新生成配置后必查策略组
+
+**配置一旦重新生成，策略组的选择会被重置为默认值**——运营组可能悄无声息地掉回 DIRECT。
+2026-08-16 就发生过：「💬 微信运营」被重置成 DIRECT，视频号流量直接从真实 IP 裸奔了一阵，
+面板上毫无异常提示。
+
+```bash
+PW=$(uci get openclash.config.dashboard_password)
+for g in "🇨🇴 CO补充" "📕 微博" "📕 小红书" "🎶 抖音" "💬 微信运营" "🪙 加密货币" "🐟 漏网之鱼"; do
+  E=$(printf '%s' "$g" | od -An -tx1 | tr -d ' \n' | sed 's/../%&/g')
+  W=$(curl -s -H "Authorization: Bearer $PW" "http://127.0.0.1:9090/proxies/$E" \
+      | grep -oE '"now":"[^"]*"' | cut -d'"' -f4)
+  printf "  %-12s → %s\n" "$g" "$W"
+done
+```
+
+**基准值**：
+
+| 策略组 | 应指向 |
+|---|---|
+| 🇨🇴 CO补充 / 📕 微博 / 📕 小红书 / 🎶 抖音 / 💬 微信运营 / 🎶 TikTok | **🇨🇴 社媒** |
+| 🪙 加密货币 | **🇨🇴 冲浪**（独立 IP，与运营隔离） |
+| 🐟 漏网之鱼 | **🇺🇸 快线**（绝不可指向 CO，否则广告追踪、软件更新全从运营 IP 出去） |
+
+### 5.2 ★ 国际站点不能走 CO 节点
+
+X（Twitter）、Google 等站点会**封禁已知代理服务商的 IP 段**。把这些组切到 CO 之后
+页面框架能加载、内容区报错「出错了，请尝试重新加载」，就是这个原因。
+
+```
+x.com 经 CO 冲浪  → error        经 🇺🇸 CN2GIA → 259ms  ✅
+google 经 CO 冲浪 → error        api.anthropic.com 经 CO → 267ms（不封）
+```
+
+**应保持在美国节点的组**：X / 谷歌服务 / YouTube / 谷歌FCM / Netflix / DisneyPlus / HBO /
+PrimeVideo / Emby / Spotify / Bahamut / Telegram / TruthSocial / 国外电商 / 游戏平台 /
+Steam / 微软服务 / 国外媒体 / 美国服务 / GitHub。
+
 ---
 
 ## 6. 故障排查（实际踩过的坑）
+
+> 更完整的排查手册见 [`troubleshooting.md`](./troubleshooting.md)，
+> 涵盖规则集脱离容器、`No Change` 死锁、`.localdomain` 陷阱、IP 属地库误判等。
 
 ### 6.1 改了 ini 却不生效
 
@@ -294,7 +377,7 @@ curl -s -H "Authorization: Bearer $SEC" \
 
 | 你改了什么 | 需要做什么 | 为什么 |
 |---|---|---|
-| **`rule/*.list`**（规则内容） | 清 provider 缓存 + `/etc/init.d/openclash restart` | provider 的 URL 没变，变的是 URL 背后的内容；主配置无需重新生成 |
+| **`rule/*.yaml`**（规则内容） | 清 provider 缓存 + `/etc/init.d/openclash restart` | provider 的 URL 没变，变的是 URL 背后的内容；主配置无需重新生成 |
 | **`cfg/*.ini`**（策略组结构） | 界面点「更新订阅」重新生成主配置 | 策略组、规则映射都写在主配置里 |
 | 自定义规则 / UCI 开关 | `/etc/init.d/openclash restart` | 由 `yml_rules_change.sh` 在启动流程中注入 |
 
@@ -310,7 +393,7 @@ curl -s -H "Authorization: Bearer $SEC" \
 
 ### 6.2.1 rule-provider 有独立的 24 小时缓存
 
-改了 `rule/*.list` 后最容易踩的坑：
+改了 `rule/*.yaml` 后最容易踩的坑：
 
 ```yaml
 rule-providers:
@@ -371,7 +454,7 @@ custom_proxy_group=🇺🇸 快线`select`(🇺🇸|CN2GIA|日本中转|直连�
 
 **规则先匹配先生效。** 若一个规则文件同时含多个 app 的域名，它只能指向一个策略组，排在后面的同类规则永远轮不到。
 
-实例：`CO_social_rule.list` 里含 `weibo.com`，而它当时指向「🎶 抖音」组 → 打开微博走进了抖音组。
+实例：`CO_social_rule.yaml` 里含 `weibo.com`，而它当时指向「🎶 抖音」组 → 打开微博走进了抖音组。
 
 **解法**：把「补充/兜底」性质的规则文件排到所有 app 规则**之后**，指向独立的兜底组。
 
@@ -408,7 +491,7 @@ webcast-core-m.amemv.com    🇨🇴 社媒 ← 🎶 抖音
 
 **这不是规则顺序问题**（先核对一下：`RULE-SET,DouYin` 的行号一定远小于 `GEOIP,CN`）。真正原因是 **§3.4 的 `override-destination`**——app 用缓存 IP 建连时匹配不到域名规则，掉到了 `GEOIP,CN`。按 §3.4 改完即可。
 
-若改完仍有个别域名落进「🐟 漏网之鱼」，说明那些域名没被任何规则覆盖，补进 `CO_social_rule.list` 即可。注意用 **`DOMAIN-KEYWORD`** 而非逐个写后缀——字节系惯用整个域名系列（`bytedns` / `bytedns1` / `bytedns3` / `bytednsdoc`…），逐个补永远补不完。
+若改完仍有个别域名落进「🐟 漏网之鱼」，说明那些域名没被任何规则覆盖，补进 `CO_social_rule.yaml` 即可。注意用 **`DOMAIN-KEYWORD`** 而非逐个写后缀——字节系惯用整个域名系列（`bytedns` / `bytedns1` / `bytedns3` / `bytednsdoc`…），逐个补永远补不完。
 
 ### 6.8 重置 JMS 凭证后节点全部失效
 
@@ -502,7 +585,7 @@ purge 后立即验证拿到的确实是新版：
 curl -s "https://cdn.jsdelivr.net/gh/maelitoandres/rules@main/cfg/cn.ini" | grep -c '<你新加的关键字>'
 ```
 
-**返回 0 就是缓存还没散**，此时更新订阅只会重新生成旧配置。改规则文件（`rule/*.list`）无需 purge——它们走 raw 地址。
+**返回 0 就是缓存还没散**，此时更新订阅只会重新生成旧配置。改规则文件（`rule/*.yaml`）无需 purge——它们走 raw 地址。
 
 ---
 
