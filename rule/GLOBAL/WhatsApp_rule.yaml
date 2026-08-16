@@ -1,0 +1,35 @@
+# NAME: WhatsApp_rule
+# 策略组: 💬 WhatsApp
+#
+# 说明: 上游 blackmatrix7 【没有】独立的 WhatsApp 规则集，whatsapp.com /
+#       whatsapp.net 被塞在 Facebook.yaml 里。本文件把它们独立出来。
+#
+# ★ 为什么不并入「📘 Meta系」:
+#   1) 基础设施独立 —— NS 记录是两套体系:
+#        facebook.com / fbcdn.net / fbsbx.com → *.ns.facebook.com
+#        wa.me / whatsapp.com                 → *.ns.whatsapp.net
+#      不存在共享 CDN 的纠缠，天然可以干净分开。
+#   2) 风控逻辑不同 —— WhatsApp 账号绑定手机号，登录 IP 频繁跳变会触发
+#      封号，对 IP 稳定性的要求比内容平台严格得多。混在一起的话，为了
+#      Instagram 调整出口会连带影响 WhatsApp 的账号安全。
+#
+# ★ 规则顺序要求: 本文件必须排在 Facebook.yaml 【之前】。
+#   Facebook.yaml 里有 DOMAIN-SUFFIX,whatsapp.com / whatsapp.net，
+#   排在后面会被它整个截走，本组永远匹配不到流量。
+#
+# ⚠️ 出口一旦选定就不要再改。IP 变动对 WhatsApp 的风险高于其他 app。
+
+payload:
+
+#—— 官方域名（NS 均为 *.ns.whatsapp.net 确认）——
+  - DOMAIN-SUFFIX,whatsapp.com
+  - DOMAIN-SUFFIX,whatsapp.net #含 g./mmg./media.whatsapp.net 等媒体与信令子域
+  - DOMAIN-SUFFIX,wa.me #官方短链
+
+#—— 关键字兜底 ——
+# 覆盖 .localdomain 变形（DNS 解析失败时系统附加搜索域重试，DOMAIN-SUFFIX 会失配）
+# 以及尚未收录的子域。
+# ⚠️ 特异性评估: "whatsapp" 是自造词，实测无常见误伤。但 Facebook.yaml 里有
+#    whatsapp-plus.* 等第三方修改版客户端的域名，关键字会一并收进来 ——
+#    这些本来也不该用，走同一出口无妨。
+  - DOMAIN-KEYWORD,whatsapp

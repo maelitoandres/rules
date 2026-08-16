@@ -1,0 +1,58 @@
+# NAME: Meta_rule
+# 策略组: 📘 Meta系（与上游 Facebook.yaml / Instagram.yaml 同组）
+#
+# 说明: Facebook 与 Instagram 共享的基础设施域名，上游两个规则集都没完整收录。
+#
+# ★ 为什么 Facebook 和 Instagram 合并成一个组:
+#   它们共用同一套 CDN 和 NS —— fbcdn.net / fbsbx.com / facebook.net 全部由
+#   a/b/d.ns.facebook.com 管理，Instagram 的图片视频也走 fbcdn.net。
+#   硬拆成两个组的话，共享 CDN 只能归其中一个，结果是同一个 app 的
+#   API 和媒体从两个不同出口出去 —— 这正是 2026-08-16 微博踩过的坑，
+#   对运营账号而言比 IP 不对更容易触发风控。
+#
+# ★ Instagram 的双重用途（日常浏览 + 账号运营）靠分层实现，不靠拆组:
+#     非运营设备 → 策略组「📘 Meta系」→ 🇺🇸 冲浪快线
+#     运营设备   → AND 规则截走      → 🇨🇴 运营0X
+#   与抖音/小红书完全相同的模式，见 deployment-guide §4.1。
+#
+# ⚠️ Meta 对数据中心 IP 的识别比国内平台严格得多。Decodo 的 IP 是
+#    hosting:true 的 ISP 代理，用于 Instagram 运营可能触发验证码或
+#    账号验证。上运营出口前先用小号试，不要直接切主力账号。
+
+payload:
+
+#—— 共享 CDN 与静态资源（NS 确认为 *.ns.facebook.com）——
+# 这三个域名 Facebook 和 Instagram 都在用，是合并成一组的直接原因。
+  - DOMAIN-SUFFIX,fbcdn.net #图片/视频 CDN，FB 与 IG 共用
+  - DOMAIN-SUFFIX,fbsbx.com #沙箱/附件下载
+  - DOMAIN-SUFFIX,facebook.net #SDK 与 JS 资源
+
+#—— Instagram 官方（上游 Instagram.yaml 只有 4 条，这里补齐）——
+  - DOMAIN-SUFFIX,cdninstagram.com #含 scontent.cdninstagram.com 媒体
+  - DOMAIN-SUFFIX,instagr.am #官方短链
+
+#—— Meta 品牌与登录 ——
+  - DOMAIN-SUFFIX,meta.com
+  - DOMAIN-SUFFIX,messenger.com
+  - DOMAIN-SUFFIX,oculus.com
+
+#—— 关键字兜底 ——
+# 覆盖 .localdomain 变形与未收录子域。
+# ⚠️ 特异性评估:
+#    fbcdn / cdninstagram / instagram —— 自造词，安全
+#    facebook —— 会命中 Facebook.yaml 里那批抢注域名(facfacebook.com 等)，
+#                但那些本来就不该访问，走同一出口无妨
+#    ❌ 不要加 "fb" —— 太短，会误伤 fbi.gov、fbref.com 等无关站点
+  - DOMAIN-KEYWORD,fbcdn
+  - DOMAIN-KEYWORD,cdninstagram
+  - DOMAIN-KEYWORD,instagram
+  - DOMAIN-KEYWORD,facebook
+
+#—— IP 段兜底 ——
+# Meta 自有 AS32934，覆盖 157.240.x / 31.13.x 等段。
+# app 在 DNS 被污染时会直连硬编码 IP，此时域名规则全部失效（见
+# troubleshooting §11 纯 IP 直连的分流盲区）。
+# ⚠️ 这里用 IP-ASN 而非逐段列举: AS32934 是 Meta 自有 ASN，不像阿里云
+#    AS24429 那样承载大量第三方业务，整体覆盖不会误伤。
+#    依赖 ASN.mmdb（随 geox-url 自动更新，OpenClash 内置）。
+  - IP-ASN,32934,no-resolve #Meta Platforms
