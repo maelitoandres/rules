@@ -62,3 +62,51 @@ payload:
   - DOMAIN-KEYWORD,ecombd #ecombdapi/ecombdimg/ecombdstatic/ecombdpage
   - DOMAIN-KEYWORD,snssdk #含 mon.snssdk.com.localdomain
   - DOMAIN-KEYWORD,amemv #含 .localdomain 变形
+
+# ★ PCDN / P2P 加速节点（2026-08-17 实测）
+#
+#   ⚠️ 这些是【第三方 PCDN 服务商】的域名，不是字节自有资产 —— NS 记录与
+#      本文件其余域名(snssdk/amemv/zijieapi 均为 vip3/vip4.alidns.com)不同:
+#        manlaxycloud.com → bainsx.cn          第三方
+#        ydycdn.com       → dnsv2.com (DNSPod) 第三方
+#        qtaeixd.com      → dnsv4.com (DNSPod) 第三方
+#        cjjd14.com       → vip3/vip4.alidns.com  ← 仅此一个与字节一致
+#      归入本文件的依据是【实测仅在刷抖音时出现】，不是域名归属。
+#      判断其他域名归属时不要拿它们当字节系的样本。
+#
+#   ★ 归属核实（2026-08-17，用 DoH 绕过 fake-ip 查真实解析）:
+#       ydycdn.com      主域 → 159.75.237.236 广州 腾讯云 AS45090 hosting=true
+#                       子域 → 182.203.174.139 辽宁沈阳 电信 AS4134   hosting=false
+#                       子域 → 117.40.149.112  江西九江 电信 AS139201 hosting=false
+#       manlaxycloud    子域 → 36.212.17.81    广东 移动 AS9808       hosting=false
+#       qtaeixd         子域 → 117.153.34.44   湖北 移动 AS9808       hosting=false
+#       cjjd14          子域 → 120.237.94.197  广东 移动 AS56040      hosting=false
+#       0kkkkkt         子域 → 已无解析（节点下线，正是域名池轮换的特征）
+#
+#     判据: 主域名落在云服务器(调度层)，子域名落在【分散各省的家宽/终端网络】
+#     且 hosting=false —— 这是 PCDN 的标准架构，不是普通 CDN。普通 CDN 的
+#     边缘节点一定在 IDC(hosting=true)，不会横跨辽宁/江西/广东/湖北的民用宽带。
+#
+#   识别特征: 随机域名轮换 + 超长哈希子域 + 高位随机端口(非 80/443)，
+#             连接目标是其他用户的设备而非服务器。
+#     4mn3mbau|oro0kbeq7o5i5cim623i8t0knms2pji0asics822rpu|0eae.manlaxycloud.com:23367
+#     4medniqu|oro0kbeq7o5i5cim623i8t0knms2pji0asics822rpu|7286.manlaxycloud.com:16723
+#     53dq9jau|oro0kbeq7o5i5cim623i8t0knms2pji0asics822rpu|5s2e.manlaxycloud.com:43881
+#              ↑ 中间 43 位完全相同 = 稳定的设备/会话标识，两头是内容分片 ID
+#
+#   为什么必须收: 这些连接解析到国内 IP，被 RULE-SET,ChinaIp 截走直连 ——
+#     它排在自定义兜底规则之前，所以连「全流量走运营出口」的设备也拦不住。
+#     结果是平台看到境外 IP，而成千上万个 P2P 对端看到真实公网 IP，
+#     且 DNS 查询里带着那段固定标识，可跨会话关联。
+#
+#   为什么走 CO 而非 REJECT: P2P 经代理大概率握手失败，app 自动回落正规
+#     CDN(已走运营出口)，效果等同禁用，但不必担心被当作强依赖而异常。
+#
+#   ⚠️ 域名池会轮换。五个服务商域名各异，无法用统一关键字覆盖，只能定期
+#      监控漏网之鱼里的「高位端口 + 随机子域」特征补充。根治办法是关掉
+#      app 内的 P2P/网络加速开关（若提供）。
+  - DOMAIN-SUFFIX,manlaxycloud.com
+  - DOMAIN-SUFFIX,ydycdn.com
+  - DOMAIN-SUFFIX,qtaeixd.com
+  - DOMAIN-SUFFIX,cjjd14.com
+  - DOMAIN-SUFFIX,0kkkkkt.com

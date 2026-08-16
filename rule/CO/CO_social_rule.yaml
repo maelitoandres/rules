@@ -23,34 +23,6 @@
 
 payload:
 
-# ★ PCDN / P2P 加速节点（2026-08-17 实测，10.1.2.34 只刷抖音+TikTok 时捕获）
-#
-#   特征: 随机域名轮换 + 超长哈希子域 + 高位随机端口(非 80/443)，
-#         连接目标是【其他用户的设备】而非服务器。
-#     4mn3mbau|oro0kbeq7o5i5cim623i8t0knms2pji0asics822rpu|0eae.manlaxycloud.com:23367
-#     4medniqu|oro0kbeq7o5i5cim623i8t0knms2pji0asics822rpu|7286.manlaxycloud.com:16723
-#     53dq9jau|oro0kbeq7o5i5cim623i8t0knms2pji0asics822rpu|5s2e.manlaxycloud.com:43881
-#              ↑ 中间 43 位完全相同 = 稳定的设备/会话标识，两头是内容分片 ID
-#
-#   为什么必须收:
-#     这些连接解析到国内 IP，被 RULE-SET,ChinaIp 截走直连 —— 排在兜底规则
-#     之前，所以连「全流量走运营出口」的 10.1.2.34 也拦不住。结果是平台看到
-#     哥伦比亚 IP，而成千上万个 P2P 对端看到真实公网 IP，且 DNS 查询里还带着
-#     那段固定标识，可跨会话关联。
-#
-#   为什么走 CO 而不是 REJECT:
-#     走代理后 P2P 大概率握手失败，app 会自动回落到正规 CDN(已走运营出口)，
-#     效果等同于禁用，但不必担心某天 app 把它当作强依赖而异常。
-#
-#   ⚠️ 域名池会轮换。已知五个服务商的域名各不相同，无法用统一关键字覆盖，
-#      只能靠定期监控漏网之鱼里的「高位端口 + 随机子域」特征补充。
-#      根治办法是关掉 app 内的 P2P/网络加速开关（若该 app 提供）。
-  - DOMAIN-SUFFIX,manlaxycloud.com #NS bainsx.cn 阿里云注册 2024-05-22
-  - DOMAIN-SUFFIX,ydycdn.com #NS dnsv2.com DNSPod 注册 2025-08-15
-  - DOMAIN-SUFFIX,qtaeixd.com #NS dnsv4.com DNSPod
-  - DOMAIN-SUFFIX,cjjd14.com #NS vip3/vip4.alidns.com
-  - DOMAIN-SUFFIX,0kkkkkt.com
-
 # ★ 数美科技 风控 SDK（2026-08-16 实测）
 #   以 fp-it.fengkongcloud.com.localdomain 掉进「🐟 漏网之鱼」走美国，出现 6 次。
 #   fp = fingerprint，这是设备指纹采集与上报通道，被小红书/抖音等大量 app 集成。
@@ -61,7 +33,7 @@ payload:
 #     宁可让它跟着业务流量走同一个出口，也不要留下两个来源。
 #
 #   为什么放在本文件而不是某个 app 的规则集:
-#     数美是跨 app 的通用 SDK，无法归属到单一平台。放这里的好处是它被那 10 条
-#     AND 规则覆盖 —— 只对运营网段 10.1.9.0/24 生效，母网段的其他设备照常直连，
-#     不会因为一个通用 SDK 把无关流量拽进运营出口。
+#     数美是跨 app 的通用 SDK，无法归属到单一平台。放这里的好处是它被运营设备
+#     的 AND 规则覆盖 —— 只对 10.1.2.33 / 10.1.2.34 生效，同网段其他设备照常
+#     直连，不会因为一个通用 SDK 把无关流量拽进运营出口。
   - DOMAIN-KEYWORD,fengkongcloud #数美风控 兜住 .localdomain 变形
