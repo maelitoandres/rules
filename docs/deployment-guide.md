@@ -234,9 +234,96 @@ uci commit openclash
 
 ---
 
-## 4. 运营 WiFi（可选，仅需要 IP 属地伪装时）
+## 4. 运营出口绑定（仅需要 IP 属地伪装时）
 
-### 4.1 网络层
+目标：**指定设备**的社媒 app 从固定的境外住宅 IP 出去，同网段其他设备照常直连。
+
+有两种做法，2026-08-17 起采用方案 A。
+
+| | 方案 A：按设备 IP 绑定 | 方案 B：独立 VLAN + SSID |
+|---|---|---|
+| 网络层改动 | 无 | 主路由建 VLAN/SSID + 旁路由建子接口 |
+| 绑定粒度 | 单个 IP（`/32`） | 整个网段 |
+| 设备换地点 | 需要在新环境重新设静态 IP | 连对应 SSID 即可 |
+| 误伤风险 | IP 被 DHCP 分给别的设备 | 低（连错 SSID 才会） |
+| 适合 | 少量固定设备 | 多设备、需要物理隔离 |
+
+### 4.1 方案 A：按设备 IP 绑定（当前采用）
+
+**第一步：给运营设备固定 IP。**
+
+最好在路由器 DHCP 里按 MAC 做静态绑定，并把该地址排除出动态池。
+只在设备端设静态 IP 也能用，但设备离线后地址可能被分配给别人——
+那台设备的社媒流量就会误走运营出口，**污染这个 IP 的行为画像**。
+
+**第二步：写 AND 规则**，落在 `/etc/openclash/custom/openclash_custom_rules.list`：
+
+```yaml
+rules:
+#—— 抖音 ——
+- AND,((SRC-IP-CIDR,10.1.2.33/32),(RULE-SET,DouYin)),🇨🇴 运营01
+- AND,((SRC-IP-CIDR,10.1.2.33/32),(RULE-SET,CO_douyin_rule)),🇨🇴 运营01
+#—— 微博 ——
+- AND,((SRC-IP-CIDR,10.1.2.33/32),(RULE-SET,Weibo)),🇨🇴 运营01
+- AND,((SRC-IP-CIDR,10.1.2.33/32),(RULE-SET,CO_weibo_rule)),🇨🇴 运营01
+#—— 小红书 ——
+- AND,((SRC-IP-CIDR,10.1.2.33/32),(RULE-SET,XiaoHongShu)),🇨🇴 运营01
+- AND,((SRC-IP-CIDR,10.1.2.33/32),(RULE-SET,CO_xhs_rule)),🇨🇴 运营01
+#—— TikTok / 兜底 / 微信视频号 ——
+- AND,((SRC-IP-CIDR,10.1.2.33/32),(RULE-SET,TikTok)),🇨🇴 运营01
+- AND,((SRC-IP-CIDR,10.1.2.33/32),(RULE-SET,CO_social_rule)),🇨🇴 运营01
+- AND,((SRC-IP-CIDR,10.1.2.33/32),(RULE-SET,CO_wechat_rule)),🇨🇴 运营01
+- AND,((SRC-IP-CIDR,10.1.2.33/32),(RULE-SET,WeChat)),🇨🇴 运营01
+```
+
+**第三步：把对应策略组设为 DIRECT**（抖音 / 小红书 / 微博 / CO补充）。
+非运营设备走策略组直连，运营设备被上面的 AND 规则截走——AND 规则插在
+rules 最顶部，优先级高于所有 ruleset。
+
+### ★ 四个必须遵守的写法要点
+
+**① 规则直接指向节点名，不要指向策略组。**
+
+这是整套方案里最关键的一条。指向节点名（`🇨🇴 运营01`）时，运营出口不受面板
+切换影响，**也不会在重新生成配置时被重置**——而策略组的选择会被重置
+（见 §5.1）。运营链路必须避开一切会被重置的东西。
+
+**② 每个 app 都要带上自建补充规则集。**
+
+只写 `RULE-SET,Weibo` 是不够的，`CO_weibo_rule` 里的关键字和 CDN IP 段
+不会跟着走专属出口，同一个 app 的流量会分走两个 IP。
+**对运营账号而言这比 IP 不对更容易触发风控。**
+
+**③ 微信要覆盖 `WeChat` 而不只是 `CO_wechat_rule`。**
+
+视频号的评论/点赞/发布全部走微信主体的 mmtls 长连接
+（`szextshort` / `szlong` / `szshort`），视频号自己的域名只负责拉视频画面。
+只覆盖 `CO_wechat_rule` 的结果是：视频从境外拉，评论仍从真实 IP 提交。
+
+> ⚠️ 副作用：该设备的微信**全部功能**都走境外——聊天延迟增加约 400ms，
+> 微信支付走境外 IP 可能触发风控。仅适用于专用运营小号的设备。
+
+**④ `AND` 复合规则只能写在这个文件里，不能写进 ini。**
+
+subconverter 会把它的语法解析坏（策略组名被插进括号里、后半段被截断）。
+单条 `SRC-IP-CIDR` 则可以正常透传。
+
+### ★ 改节点名后必须同步这里
+
+AND 规则里的节点名是写死的字符串。节点改名后规则会被静默丢弃，
+运营流量退回策略组（也就是 DIRECT，直接暴露真实 IP）。改完务必检查：
+
+```bash
+grep -c "Skiped The Custom Rule" /tmp/openclash.log   # 应为 0
+
+# 确认规则真的在工作
+grep "10.1.2.33" /tmp/openclash.log | grep "AND(" | tail -3
+# → match AND(((SrcIPCIDR,10.1.2.33/32) && (RuleSet,WeChat))) using 🇨🇴 运营01
+```
+
+### 4.2 方案 B：独立 VLAN + SSID（多设备时选用）
+
+#### 网络层
 
 **主路由（UCG-Fiber）侧：**
 
@@ -278,18 +365,19 @@ uci commit; /etc/init.d/network reload; /etc/init.d/firewall reload
 
 **TPROXY 无需任何改动** —— OpenClash 的规则挂在 `mangle_prerouting` / `dstnat` hook 上且不绑定接口，新网段的流量会自动被接管。
 
-### 4.2 微信劫持规则
+#### 规则写法
 
-写入 `/etc/openclash/custom/openclash_custom_rules.list`：
+与方案 A 完全相同，只是把 `SRC-IP-CIDR,10.1.2.33/32` 换成整个网段
+`SRC-IP-CIDR,10.1.9.0/24`。上面「四个必须遵守的写法要点」同样适用。
 
-```yaml
-rules:
-- AND,((SRC-IP-CIDR,10.1.9.0/24),(RULE-SET,WeChat)),💬 微信运营
-```
+效果分层：运营 WiFi 的社媒 → 境外住宅 IP；其他设备 → 各自策略组不受影响。
 
-效果分层：运营 WiFi 的微信 → 🇨🇴 节点（属地显示哥伦比亚）；其他设备的微信 → 各自策略组不受影响；运营设备的其他 app → 照常走全局策略。
+#### 三地部署时的注意事项
 
-> `AND` 复合规则**必须写在这里**，不能写进 ini——subconverter 会把它的语法解析坏（策略组名被插到括号里、后半段被截断）。单条 `SRC-IP-CIDR` 则可以正常透传。
+运营设备在美国/哥伦比亚办公室也要走同一个出口的话，**各地的运营 WiFi 必须配成
+相同网段**（都用 `10.1.9.0/24`），这样同一份 AND 规则在三地都能生效，
+不用维护三份规则文件。这正是方案 B 相对方案 A 的主要优势——
+方案 A 依赖具体 IP，换个地点就得重设。
 
 ---
 
@@ -316,11 +404,29 @@ curl -s -H "Authorization: Bearer $SEC" \
 
 中国办公室的基准值：节点 5、策略组 40、`vless`/`reality-opts`/`dialer-proxy`/`socks5` 各 2。
 
-### 5.1 ★ 每次重新生成配置后必查策略组
+### 5.1 ★ 什么情况下策略组会被重置
 
-**配置一旦重新生成，策略组的选择会被重置为默认值**——运营组可能悄无声息地掉回 DIRECT。
-2026-08-16 就发生过：「💬 微信运营」被重置成 DIRECT，视频号流量直接从真实 IP 裸奔了一阵，
-面板上毫无异常提示。
+**2026-08-17 更正**：早先「每次重新生成配置都会重置」的说法不准确。
+OpenClash 在 `yml_change.sh:532` 无条件注入 `profile.store-selected = true`，
+策略组选择是持久化的（存于 `/etc/openclash/history/<配置名>.db`），
+**每日 cron 自动更新不会重置**。已实测验证：重启服务后所有选择原样保留。
+
+真正会触发重置的是**改名**。`store-selected` 存的是「策略组名 → 节点名」的字符串
+映射，一旦任一侧的名字变化，旧记录失配，就回退到默认值（select 组的第一个选项）：
+
+```
+节点  运营01     →  🇨🇴 运营01        ← 记录里的"运营01"找不到了
+组名  🇺🇸 快线   →  🇺🇸 CN2GIA快线    ← 同理（2026-08-17 那次改名）
+```
+
+所以：**改名后手动恢复一次即可，之后不会再发生**。
+
+> 查 `store-selected` 状态时注意查对文件：`/etc/openclash/config/<配置名>.yaml` 是
+> 订阅转换后的**源配置**，里面没有 profile 段，查了会误判。内核实际加载的是
+> `/etc/openclash/<配置名>.yaml`，用 `ps w | grep "openclash/clash"` 看 `-f` 参数确认。
+
+**运营出口不要依赖策略组选择**——写进自定义规则、直接指向节点名的 AND 规则
+不受任何重置影响（见 §4.1），这是运营链路唯一可靠的绑定方式。
 
 ```bash
 PW=$(uci get openclash.config.dashboard_password)
@@ -332,13 +438,18 @@ for g in "🇨🇴 CO补充" "📕 微博" "📕 小红书" "🎶 抖音" "💬 
 done
 ```
 
-**基准值**：
+**基准值**（2026-08-17 起，运营出口改由 AND 规则承担，策略组只服务非运营设备）：
 
-| 策略组 | 应指向 |
-|---|---|
-| 🇨🇴 CO补充 / 📕 微博 / 📕 小红书 / 🎶 抖音 / 💬 微信运营 / 🎶 TikTok | **🇨🇴 社媒** |
-| 🪙 加密货币 | **🇨🇴 冲浪**（独立 IP，与运营隔离） |
-| 🐟 漏网之鱼 | **🇺🇸 快线**（绝不可指向 CO，否则广告追踪、软件更新全从运营 IP 出去） |
+| 策略组 | 应指向 | 理由 |
+|---|---|---|
+| 🎶 抖音 / 📕 微博 / 📕 小红书 / 🇨🇴 CO补充 / 💬 微信 / 💬 微信运营 | **DIRECT** | 非运营设备的国内 app 直连最快；运营设备被 AND 规则截走 |
+| 🎶 TikTok | **🇺🇸 冲浪快线** | 国内直连不通，但不该蹭运营 IP |
+| 🪙 加密货币 | **🇯🇵 日本** | Decodo 按类目封锁金融/加密站点；且交易所看国际库，不需要住宅 IP |
+| 🍎 苹果服务 | **DIRECT**（组内已无其他选项） | 走代理会让 App Store/iCloud 区域判定摇摆 |
+| 🐟 漏网之鱼 | **🇺🇸 冲浪快线** | 绝不可指向运营节点，否则广告追踪、软件更新全从运营 IP 出去 |
+
+> 运营节点（🇨🇴 运营01/02/03）**不应出现在任何策略组的当前选择里**。
+> 它们只由 AND 规则引用，一台设备一个 IP。别的设备蹭同一个 IP 会污染行为画像。
 
 ### 5.2 ★ 国际站点不能走 CO 节点
 
@@ -435,7 +546,7 @@ subconverter 的 `emoji` 参数语义是「**先剥掉原有的**，再决定要
 
 ```ini
 rename=JMS.*c55s3\..*@🇺🇸 CN2GIA
-rename=^社媒$@🇨🇴 社媒
+rename=^运营01$@🇨🇴 运营01
 ```
 
 ### 6.4 策略组里出现意外的 DIRECT
@@ -445,7 +556,7 @@ subconverter 对 `select` 组会自动补 `DIRECT` 且排在**首位**（即默�
 **解法：显式指定兜底项**
 
 ```ini
-custom_proxy_group=🇺🇸 快线`select`(🇺🇸|CN2GIA|日本中转|直连备用)`[]REJECT
+custom_proxy_group=🇺🇸 美国服务`select`(🇺🇸)`[]REJECT
 ```
 
 用 `REJECT` 而非 `DIRECT`：误选时连接立即失败、能马上发现，而不是静默泄露 IP。
@@ -486,7 +597,7 @@ curl -s -H "Authorization: Bearer $SEC" http://127.0.0.1:9090/connections \
 
 ```
 webcast-core-m.amemv.com    DIRECT ← 🎯 全球直连
-webcast-core-m.amemv.com    🇨🇴 社媒 ← 🎶 抖音
+webcast-core-m.amemv.com    🇨🇴 运营01 ← 🎶 抖音
 ```
 
 **这不是规则顺序问题**（先核对一下：`RULE-SET,DouYin` 的行号一定远小于 `GEOIP,CN`）。真正原因是 **§3.4 的 `override-destination`**——app 用缓存 IP 建连时匹配不到域名规则，掉到了 `GEOIP,CN`。按 §3.4 改完即可。
@@ -535,10 +646,10 @@ jsdelivr(CN优化)  ✅ 可达      raw.github   ❌ 不可达
 |---|---|---|---|
 | 模板 | `cn.ini` | `us.ini` | `co.ini` |
 | 国际服务默认 | 🇺🇸 冲浪快线 | DIRECT | DIRECT |
-| 美国服务默认 | 🇺🇸 快线 | DIRECT | 🇺🇸 快线 |
+| 美国服务默认 | 🇺🇸 CN2GIA快线 | DIRECT | 🇺🇸 CN2GIA快线 |
 | 中国服务 | DIRECT | 回国节点 ⚠️ | 回国节点 ⚠️ |
 | socks5 桥接 | **必须**（GFW） | 建议保留（一致性） | 建议保留 |
-| 运营 WiFi | 已部署 | 按需 | 按需 |
+| 运营出口 | 方案A(设备IP绑定) | 按需 | 按需 |
 
 ⚠️ 尚无中国落地节点，该组暂为 DIRECT，补节点后在 ini 填一行即可。
 
