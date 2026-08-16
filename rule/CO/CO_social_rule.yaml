@@ -1,124 +1,25 @@
 # NAME: CO_social_rule
 # 策略组: 🇨🇴 CO补充
-# 出口: 哥伦比亚 ISP 住宅 IP（select 手动固定，禁止自动切换）
-# 说明: 需要走 CO 节点、但上游规则集未覆盖的域名合集。
-#       在 ini 中排在所有 app 规则之后，只做兜底捡漏——
-#       抖音/微博/小红书等域名会先被各自的上游规则集精确命中。
+#
+# 说明: 需要走 CO 节点、但【不属于任何单一 app】的域名。
+#
+# ★ 2026-08-16 重构: 原本这里是所有平台补充规则的大杂烩，已按 app 拆分——
+#     字节系   → CO_douyin_rule.yaml → 🎶 抖音
+#     新浪系   → CO_weibo_rule.yaml  → 📕 微博
+#     小红书   → CO_xhs_rule.yaml    → 📕 小红书
+#
+#   拆分原因: 补充规则原先统一指向「🇨🇴 CO补充」组，与 app 主规则所在的组
+#   相互独立。在面板切换某个 app 的出口时，它的补充规则不会跟着切，导致
+#   同一 app 的流量从两个不同 IP 出去——对运营账号而言，这比 IP 不对更容易
+#   触发风控。拆分后每份补充规则与对应 app 走同一策略组，切换时同步生效。
+#
+# 本文件保留用途:
+#   · 跨平台的通用域名（多个 app 共用的第三方服务）
+#   · 归属尚未确认、暂时无法归类的域名
+#   · 新发现漏网域名时的临时落脚点，确认归属后再移入对应 app 的规则集
+#
+# 判断归属的方法见 rule/README.md「加规则前的验证规范」——
+# NS 记录比对、IP 段整段抽查、关键字特异性评估。
 
-#字节跳动系
 payload:
-  - DOMAIN-SUFFIX,zijieapi.com
-  - DOMAIN-SUFFIX,zjcdn.com
-  - DOMAIN-SUFFIX,jinritemai.com
-  - DOMAIN-SUFFIX,huoshanimg.com
-  - DOMAIN-SUFFIX,zztfly.com
-  - DOMAIN-SUFFIX,amemv.com
-  - DOMAIN-SUFFIX,snssdk.com
-  - DOMAIN-SUFFIX,bdxiguaimg.com
-  - DOMAIN-SUFFIX,bdxiguastatic.com
-  - DOMAIN-SUFFIX,feelgood.cn
-  - DOMAIN-SUFFIX,feiliao.com
-  - DOMAIN-SUFFIX,gifshow.com
-  - DOMAIN-SUFFIX,huoshan.com
-  - DOMAIN-SUFFIX,huoshanzhibo.com
-  - DOMAIN-SUFFIX,ixigua.com
-  - DOMAIN-SUFFIX,kspkg.com
-  - DOMAIN-SUFFIX,pstatp.com
-  - DOMAIN-SUFFIX,wukong.com
-  - DOMAIN-SUFFIX,zijieimg.com
-
-
-#—— 关键字规则：覆盖整个系列域名，避免逐个补充 ——
-  - DOMAIN-KEYWORD,ecombd #ecombdapi/ecombdimg/ecombdstatic/ecombdpage
-# ★ 字节系统一关键字（替代原先逐个收录的 17 个 byte* 域名）
-#   字节的域名池是开放集合——2026-08-16 一天内就新增 bdurl/bytehwm/bytemaimg 三个，
-#   逐个追补没有尽头。改用关键字一次覆盖。
-#   误伤评估: 已收录的 17 个 byte* 域名(byteimg/bytelb/bytetos/bytegecko/byted-static/
-#   bytedance/bytegoofy/bytescm/bytexservice/bytehwm/bytemaimg/byteeffecttos/ibytedapm/
-#   zjbyte/bytedns/bytecdn) 无一例外全属字节，byte 作为域名主体的无关站点极罕见。
-#   注: 抖音大量租用移动/联通/金山云的服务器，IP 段归属显示的是房东而非租户，
-#       无法按段加规则——域名关键字是唯一可靠的覆盖方式。
-  - DOMAIN-KEYWORD,byte
-  - DOMAIN-KEYWORD,douyin #douyin.com/douyinpic/douyinvod/douyincdn
-  - DOMAIN-KEYWORD,toutiao #toutiao.com/toutiaoapi/toutiaocdn 等
-
-# ★ 关键字兜底：客户端 DNS 解析失败时会自动附加搜索域重试，
-#   产生 xxx.sinaimg.cn.localdomain 这种域名。后缀变成 .localdomain 后
-#   DOMAIN-SUFFIX 规则完全失配，流量会掉进漏网之鱼走美国。
-#   实测漏网案例: ad.us.sinaimg.cn.localdomain / ads-img-al.xhscdn.com.localdomain
-#   关键字不受后缀影响，可覆盖这类变形。以下关键字均足够特异，不会误伤。
-  - DOMAIN-KEYWORD,weibo #weibo.com/.cn 及 .localdomain 变形
-  - DOMAIN-KEYWORD,weibocdn
-  - DOMAIN-KEYWORD,sinaimg #含 ad.us.sinaimg.cn.localdomain
-  - DOMAIN-KEYWORD,xhscdn #小红书CDN 含 ads-img-al.xhscdn.com.localdomain
-  - DOMAIN-KEYWORD,xiaohongshu
-  - DOMAIN-KEYWORD,snssdk #字节 mon.snssdk.com.localdomain 2026-08-16实测漏走美国
-  - DOMAIN-KEYWORD,amemv #抖音同系列，防 .localdomain 变形
-  - DOMAIN-SUFFIX,bdurl.net #字节数据上报 dig.bdurl.net 2026-08-16实测漏走DIRECT
-#   ↑ 归属确认: NS 记录为 vip3/vip4.alidns.com，与 snssdk.com/amemv.com 完全一致，
-#     是字节系域名的共同特征。dig = data insight gather(埋点上报)，带真实 IP
-#     上报设备标识与网络环境，运营场景必须收进 CO。
-
-#—— 监控发现的漏网域名（20分钟实测补充）——
-  - DOMAIN-SUFFIX,vodupload.com #视频上传
-  - DOMAIN-SUFFIX,ndcpp.com #抖音视频 CDN
-  - DOMAIN-SUFFIX,dailygn.com #创意素材
-  - DOMAIN-SUFFIX,365yg.com #今日头条视频
-  - DOMAIN-SUFFIX,faceu.mobi #Faceu 轻颜(字节)
-  - DOMAIN-SUFFIX,qishui.com #汽水音乐(字节)
-
-#新浪系
-  - DOMAIN-SUFFIX,leju.com
-  - DOMAIN-SUFFIX,miaopai.com
-  - DOMAIN-SUFFIX,sina.com
-  - DOMAIN-SUFFIX,sina.com.cn
-  - DOMAIN-SUFFIX,sina.cn
-  - DOMAIN-SUFFIX,sinaapp.com
-  - DOMAIN-SUFFIX,sinaapp.cn
-  - DOMAIN-SUFFIX,sinaimg.com
-  - DOMAIN-SUFFIX,sinaimg.cn
-  - DOMAIN-SUFFIX,sinacloud.net #新浪云 2026-08-16实测漏走DIRECT
-  - DOMAIN-SUFFIX,sinacloud.com #新浪云(同系列一并收)
-  - DOMAIN-SUFFIX,sinajs.cn #新浪JS资源 img.t.sinajs.cn 2026-08-16实测漏走DIRECT
-  - DOMAIN-SUFFIX,weibo.com
-  - DOMAIN-SUFFIX,weibo.cn
-  - DOMAIN-SUFFIX,weibocdn.com
-  - DOMAIN-SUFFIX,weibocdn.cn
-  - DOMAIN-SUFFIX,xiaoka.tv
-
-# ★ 微博海外 CDN 的 IP 段（2026-08-16 实测）
-#   微博 App 用硬编码 IP 直连这批 CDN，不发 Host/SNI，嗅探器拿不到域名
-#   (sniffHost 为空)，只能落到 MATCH 兜底跟着漏网之鱼走美国。
-#   两台设备(10.1.2.33 / 10.1.2.110)、两轮测试抓到的是同一组 IP，稳定。
-#   ⚠️ EdgeNext(AS139057) 与 Zenlayer(AS21859) 是共享 CDN，其他中国 app
-#      出海也可能用这些段，加了会一并导向 CO。已收窄到 /24，且实测这五段
-#      只有微博在跑。若将来发现误伤，按段移除即可。
-#   no-resolve: 只对已知 IP 的连接匹配，不触发域名解析，避免拖慢。
-  - IP-CIDR,154.92.24.0/24,no-resolve #EdgeNext 香港
-  - IP-CIDR,151.242.229.0/24,no-resolve #EdgeNext 洛杉矶
-  - IP-CIDR,98.96.229.0/24,no-resolve #Zenlayer 迈阿密
-  - IP-CIDR,199.245.60.0/24,no-resolve #Zenlayer 迈阿密
-  - IP-CIDR,128.14.118.0/24,no-resolve #Zenlayer 圣保罗
-
-# ★ 新浪自有服务器段（AS37936 SINA）
-#   微博用非标准端口 8081 硬编码 IP 直连自家北京服务器，无域名无 SNI，
-#   落在中国 IP 段被 GeoIP(cn) 判为国内 → 走 DIRECT，暴露真实 IP。
-#   ⚠️ 不能用 IP-ASN 覆盖：新浪多数服务器托管在 AS4134(中国电信骨干网)，
-#      按 ASN 加会把整个电信网络导向 CO。只能按实测到的段逐个补。
-  - IP-CIDR,36.51.224.0/24,no-resolve #新浪北京 AS37936 端口8081 2026-08-16实测
-
-# ★ ACE (AS139341) —— 小红书的海外 CDN
-#   实测抓到 5 个分散的段: 43.159.79 / 43.159.95 / 43.175.104 / 43.175.224 / 43.175.225
-#   (新加坡与美国 Tucumcari 混杂)。按 /24 逐个加容易漏，且 CDN 随时可能启用新段，
-#   故用 ASN 整体覆盖。
-#   ⚠️ ACE 是共享 CDN 服务商，其他中企出海业务也可能用它，加此规则会一并导向 CO。
-#      实测本网内只有小红书在跑这批 IP。若发现误伤，改回按 /24 精确覆盖。
-#   依赖 ASN.mmdb（已随 geox-url 自动更新，12MB，OpenClash 内置）
-  - IP-ASN,139341,no-resolve #ACE 小红书海外CDN 2026-08-16实测
-
-# ★ 阿里云海外 CDN（AS24429）—— 小红书在用
-#   ⚠️ 这里刻意【不用】IP-ASN,24429：那是阿里云整个海外网络，覆盖面极大，
-#      会把所有走阿里云海外服务的流量都拽进 CO。只按实测到的段精确覆盖。
-#   两段均四点抽查确认整段归属 AS24429。
-  - IP-CIDR,163.181.60.0/24,no-resolve #阿里云 亚特兰大 2026-08-16刷小红书实测
-  - IP-CIDR,47.246.2.0/24,no-resolve #阿里云 莫斯科 同批扫出
+  - DOMAIN-SUFFIX,xiaoka.tv #秒拍/一直播 系列，跨微博与独立 app

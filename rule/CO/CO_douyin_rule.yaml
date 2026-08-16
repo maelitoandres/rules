@@ -1,0 +1,59 @@
+# NAME: CO_douyin_rule
+# 策略组: 🎶 抖音（与上游 DouYin.yaml 同组）
+#
+# 说明: 字节系域名补充。上游 blackmatrix7 的 DouYin.yaml 只收了 13 条，
+#       覆盖远远不够——实测刷抖音会用到几十个字节域名。
+#
+# ★ 为什么指向「🎶 抖音」而不是独立的补充组:
+#   补充规则必须与 app 主规则走同一个策略组，否则在面板切换抖音出口时，
+#   这些域名不会跟着切，同一个 app 的流量会从两个不同 IP 出去——
+#   对运营账号来说，这比 IP 不对更容易触发风控。
+#
+# ⚠️ 字节大量租用第三方基础设施（移动 AS56044/56047、联通 AS17623/17816/136958、
+#    金山云 AS141679），IP 段归属显示的是「房东」不是「租户」，段内混杂，
+#    无法按 IP 段加规则——域名关键字是唯一可靠的覆盖方式。
+
+payload:
+
+#字节系域名
+  - DOMAIN-SUFFIX,zijieapi.com
+  - DOMAIN-SUFFIX,zjcdn.com
+  - DOMAIN-SUFFIX,jinritemai.com
+  - DOMAIN-SUFFIX,huoshanimg.com
+  - DOMAIN-SUFFIX,zztfly.com
+  - DOMAIN-SUFFIX,amemv.com
+  - DOMAIN-SUFFIX,snssdk.com
+  - DOMAIN-SUFFIX,bdxiguaimg.com
+  - DOMAIN-SUFFIX,bdxiguastatic.com
+  - DOMAIN-SUFFIX,feelgood.cn
+  - DOMAIN-SUFFIX,feiliao.com
+  - DOMAIN-SUFFIX,gifshow.com
+  - DOMAIN-SUFFIX,huoshan.com
+  - DOMAIN-SUFFIX,huoshanzhibo.com
+  - DOMAIN-SUFFIX,ixigua.com
+  - DOMAIN-SUFFIX,kspkg.com
+  - DOMAIN-SUFFIX,pstatp.com
+  - DOMAIN-SUFFIX,wukong.com
+  - DOMAIN-SUFFIX,zijieimg.com
+
+#—— 监控发现的漏网域名（实测补充）——
+  - DOMAIN-SUFFIX,vodupload.com #视频上传
+  - DOMAIN-SUFFIX,ndcpp.com #抖音视频 CDN
+  - DOMAIN-SUFFIX,dailygn.com #创意素材
+  - DOMAIN-SUFFIX,365yg.com #今日头条视频
+  - DOMAIN-SUFFIX,faceu.mobi #Faceu 轻颜(字节)
+  - DOMAIN-SUFFIX,qishui.com #汽水音乐(字节)
+  - DOMAIN-SUFFIX,bdurl.net #数据上报 dig.bdurl.net
+#   ↑ 归属确认: NS 记录 vip3/vip4.alidns.com，与 snssdk.com/amemv.com 一致。
+#     dig = data insight gather(埋点上报)，带真实 IP 上报设备标识与网络环境。
+
+# ★ 关键字规则：覆盖整个系列，避免逐个补充
+#   字节的域名池是开放集合——2026-08-16 一天内就新增 bdurl/bytehwm/bytemaimg 三个。
+#   关键字还能兜住 .localdomain 变形（DNS 解析失败时系统附加搜索域重试，
+#   DOMAIN-SUFFIX 会完全失配）。
+  - DOMAIN-KEYWORD,byte #替代原先逐个收录的 17 个 byte* 域名
+  - DOMAIN-KEYWORD,douyin #douyin.com/douyinpic/douyinvod/douyincdn
+  - DOMAIN-KEYWORD,toutiao #toutiao.com/toutiaoapi/toutiaocdn
+  - DOMAIN-KEYWORD,ecombd #ecombdapi/ecombdimg/ecombdstatic/ecombdpage
+  - DOMAIN-KEYWORD,snssdk #含 mon.snssdk.com.localdomain
+  - DOMAIN-KEYWORD,amemv #含 .localdomain 变形

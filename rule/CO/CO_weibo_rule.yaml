@@ -1,0 +1,57 @@
+# NAME: CO_weibo_rule
+# 策略组: 📕 微博（与上游 Weibo.yaml 同组）
+#
+# 说明: 新浪/微博域名与 IP 段补充。上游 blackmatrix7 的 Weibo.yaml 只有 4 条，
+#       几乎等于没有覆盖。
+#
+# ★ 为什么指向「📕 微博」而不是独立的补充组:
+#   补充规则必须与 app 主规则走同一个策略组，否则面板切换微博出口时这些规则
+#   不跟着切，同一账号的流量会从两个 IP 出去。
+
+payload:
+
+#新浪系域名
+  - DOMAIN-SUFFIX,leju.com
+  - DOMAIN-SUFFIX,miaopai.com
+  - DOMAIN-SUFFIX,sina.com
+  - DOMAIN-SUFFIX,sina.com.cn
+  - DOMAIN-SUFFIX,sina.cn
+  - DOMAIN-SUFFIX,sinaapp.com
+  - DOMAIN-SUFFIX,sinaapp.cn
+  - DOMAIN-SUFFIX,sinaimg.com
+  - DOMAIN-SUFFIX,sinaimg.cn
+  - DOMAIN-SUFFIX,sinacloud.net #新浪云 2026-08-16实测漏走DIRECT
+  - DOMAIN-SUFFIX,sinacloud.com #同系列一并收
+  - DOMAIN-SUFFIX,sinajs.cn #JS资源 img.t.sinajs.cn 实测漏走DIRECT
+  - DOMAIN-SUFFIX,weibo.com
+  - DOMAIN-SUFFIX,weibo.cn
+  - DOMAIN-SUFFIX,weibocdn.com
+  - DOMAIN-SUFFIX,weibocdn.cn
+  - DOMAIN-SUFFIX,xiaoka.tv
+
+# ★ 关键字兜底 .localdomain 变形
+#   客户端 DNS 解析失败时会附加搜索域重试，产生 ad.us.sinaimg.cn.localdomain
+#   这类域名，后缀一变 DOMAIN-SUFFIX 完全失配，流量掉进漏网之鱼走美国。
+  - DOMAIN-KEYWORD,weibo
+  - DOMAIN-KEYWORD,weibocdn
+  - DOMAIN-KEYWORD,sinaimg #含 ad.us.sinaimg.cn.localdomain
+
+# ★ 微博海外 CDN 的 IP 段（2026-08-16 实测）
+#   微博 App 硬编码 IP 直连这批 CDN，不发 Host/SNI（连接详情里 sniffHost 为空），
+#   端口 80/443 虽在嗅探范围内也拿不到域名，只能落到 MATCH 兜底走美国。
+#   两台设备、两轮测试抓到同一组 IP，稳定。
+#   ⚠️ EdgeNext(AS139057) 与 Zenlayer(AS21859) 是共享 CDN，其他中企出海也可能用，
+#      已收窄到 /24。若发现误伤按段移除。
+#   no-resolve: 只对已知 IP 的连接匹配，不触发域名解析。
+  - IP-CIDR,154.92.24.0/24,no-resolve #EdgeNext 香港
+  - IP-CIDR,151.242.229.0/24,no-resolve #EdgeNext 洛杉矶
+  - IP-CIDR,98.96.229.0/24,no-resolve #Zenlayer 迈阿密
+  - IP-CIDR,199.245.60.0/24,no-resolve #Zenlayer 迈阿密
+  - IP-CIDR,128.14.118.0/24,no-resolve #Zenlayer 圣保罗
+
+# ★ 新浪自有服务器段（AS37936 SINA）
+#   微博用非标准端口 8081 硬编码 IP 直连自家北京服务器，无域名无 SNI，
+#   落在中国 IP 段被 GeoIP(cn) 判为国内 → 走 DIRECT，暴露真实 IP。
+#   ⚠️ 不能用 IP-ASN 覆盖：新浪多数服务器托管在 AS4134(中国电信骨干网)，
+#      按 ASN 加会把整个电信网络导向 CO。四点抽查确认此段整段归 AS37936。
+  - IP-CIDR,36.51.224.0/24,no-resolve #新浪北京 端口8081 2026-08-16实测
