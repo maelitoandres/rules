@@ -9,41 +9,36 @@
 payload:
   - DOMAIN-SUFFIX,zijieapi.com
   - DOMAIN-SUFFIX,zjcdn.com
-  - DOMAIN-SUFFIX,byteimg.com
   - DOMAIN-SUFFIX,jinritemai.com
   - DOMAIN-SUFFIX,huoshanimg.com
-  - DOMAIN-SUFFIX,bytelb.net
-  - DOMAIN-SUFFIX,bytetos.com
-  - DOMAIN-SUFFIX,bytegecko.com
   - DOMAIN-SUFFIX,zztfly.com
   - DOMAIN-SUFFIX,amemv.com
   - DOMAIN-SUFFIX,snssdk.com
   - DOMAIN-SUFFIX,bdxiguaimg.com
   - DOMAIN-SUFFIX,bdxiguastatic.com
-  - DOMAIN-SUFFIX,byted-static.com
-  - DOMAIN-SUFFIX,bytedance.com
-  - DOMAIN-SUFFIX,bytedance.net
-  - DOMAIN-SUFFIX,bytegoofy.com
-  - DOMAIN-SUFFIX,bytescm.com
-  - DOMAIN-SUFFIX,bytexservice.com
   - DOMAIN-SUFFIX,feelgood.cn
   - DOMAIN-SUFFIX,feiliao.com
   - DOMAIN-SUFFIX,gifshow.com
   - DOMAIN-SUFFIX,huoshan.com
   - DOMAIN-SUFFIX,huoshanzhibo.com
-  - DOMAIN-SUFFIX,ibytedapm.com
   - DOMAIN-SUFFIX,ixigua.com
   - DOMAIN-SUFFIX,kspkg.com
   - DOMAIN-SUFFIX,pstatp.com
   - DOMAIN-SUFFIX,wukong.com
   - DOMAIN-SUFFIX,zijieimg.com
-  - DOMAIN-SUFFIX,zjbyte.com
 
 
 #—— 关键字规则：覆盖整个系列域名，避免逐个补充 ——
-  - DOMAIN-KEYWORD,bytedns #bytedns.com/.net/1/3/doc 等整个系列
   - DOMAIN-KEYWORD,ecombd #ecombdapi/ecombdimg/ecombdstatic/ecombdpage
-  - DOMAIN-KEYWORD,bytecdn #bytecdn.com 等字节 CDN
+# ★ 字节系统一关键字（替代原先逐个收录的 17 个 byte* 域名）
+#   字节的域名池是开放集合——2026-08-16 一天内就新增 bdurl/bytehwm/bytemaimg 三个，
+#   逐个追补没有尽头。改用关键字一次覆盖。
+#   误伤评估: 已收录的 17 个 byte* 域名(byteimg/bytelb/bytetos/bytegecko/byted-static/
+#   bytedance/bytegoofy/bytescm/bytexservice/bytehwm/bytemaimg/byteeffecttos/ibytedapm/
+#   zjbyte/bytedns/bytecdn) 无一例外全属字节，byte 作为域名主体的无关站点极罕见。
+#   注: 抖音大量租用移动/联通/金山云的服务器，IP 段归属显示的是房东而非租户，
+#       无法按段加规则——域名关键字是唯一可靠的覆盖方式。
+  - DOMAIN-KEYWORD,byte
   - DOMAIN-KEYWORD,douyin #douyin.com/douyinpic/douyinvod/douyincdn
   - DOMAIN-KEYWORD,toutiao #toutiao.com/toutiaoapi/toutiaocdn 等
 
@@ -60,14 +55,11 @@ payload:
   - DOMAIN-KEYWORD,snssdk #字节 mon.snssdk.com.localdomain 2026-08-16实测漏走美国
   - DOMAIN-KEYWORD,amemv #抖音同系列，防 .localdomain 变形
   - DOMAIN-SUFFIX,bdurl.net #字节数据上报 dig.bdurl.net 2026-08-16实测漏走DIRECT
-  - DOMAIN-SUFFIX,bytehwm.com #字节字体资源 lf3/lf6-font-sign 2026-08-16实测漏走DIRECT
-  - DOMAIN-SUFFIX,bytemaimg.com #字节图片资源 p3-developer 2026-08-16实测漏走DIRECT
 #   ↑ 归属确认: NS 记录为 vip3/vip4.alidns.com，与 snssdk.com/amemv.com 完全一致，
 #     是字节系域名的共同特征。dig = data insight gather(埋点上报)，带真实 IP
 #     上报设备标识与网络环境，运营场景必须收进 CO。
 
 #—— 监控发现的漏网域名（20分钟实测补充）——
-  - DOMAIN-SUFFIX,byteeffecttos.com #抖音特效/道具资源
   - DOMAIN-SUFFIX,vodupload.com #视频上传
   - DOMAIN-SUFFIX,ndcpp.com #抖音视频 CDN
   - DOMAIN-SUFFIX,dailygn.com #创意素材
