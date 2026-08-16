@@ -1,6 +1,6 @@
 # 排查手册
 
-> 本文按「症状 → 根因 → 排查方法 → 解法」组织，每条都来自 2026-08-15/16 的实际故障。
+> 本文按「症状 → 根因 → 排查方法 → 解法」组织，每条都来自 2026-08-15 ~ 17 的实际故障。
 > 涉及 OpenClash 或 subconverter 机制的结论均标注了源码/文档出处——**遇到新问题先查官方文档，
 > 不要凭推断下结论**（这条规矩本身就是踩坑换来的，见文末「方法论」）。
 
@@ -355,6 +355,43 @@ iptables -D OUTPUT -p tcp --dport 22228 -j DROP
 该段的先天问题：**注册在 RIPE（欧洲注册局）而非 LACNIC（拉美）**，持有者 ALAXONA
 不是哥伦比亚本地 ISP，网络名 `ES2019`。字节读 RIPE 的 `country: CO` 判对，其他库不认。
 
+### ★ 2026-08-17 修正：决定因素是 RIR，不是 ISP
+
+上面「持有者不是本地 ISP」的推断**只对了一半**。换到 Decodo 之后拿到了反例：
+
+| IP | RIR | ASN / ISP | 国内库判定 |
+|---|---|---|---|
+| `185.177.78.55` (BD) | RIPE | ALAXONA（转售商） | 全部判美国 |
+| `23.27.43.108` (Decodo) | **ARIN** | **AS14080 Telmex Colombia** | 微博/B站/抖音/微信 ✅　小红书 ❌ |
+| `136.0.47.9` (Decodo) | **ARIN** | **AS14080 Telmex Colombia** | 同上 |
+| `190.85.0.1`（对照） | **LACNIC** | AS14080 Telmex Colombia | — |
+
+Decodo 那批的 ASN 和 ISP **就是哥伦比亚本地运营商 Telmex**，实际也在波哥大，
+但 IP 段本身注册在 ARIN（北美）。结果是精细库判对、粗粒度库判错。
+
+所以国内 IP 库分两派：
+
+- **精细库**（微博 / B站 / 抖音 / 微信）跟踪真实 BGP 通告和 ASN → 判哥伦比亚 ✅
+- **粗粒度库**（小红书）按 RIR 分配归属判定 → ARIN = 北美 = 美国 ❌
+
+`190.85.0.0/16` 是同一个 AS14080 下的 LACNIC 段——**同一家运营商，不同 RIR，判定就不同**。
+这说明选 IP 时 ASN 和 ISP 都不是硬指标，**RIR 才是**。
+
+验证一个段属于哪个 RIR：
+
+```bash
+whois 23.27.43.108 | grep -iE "^(source|organisation|NetRange):"
+# organisation: ARIN          ← 北美，粗粒度库会判成美国
+# whois:        whois.arin.net
+
+whois 190.85.0.1 | grep -iE "^(source|organisation|inetnum):"
+# organisation: LACNIC        ← 拉美，所有库都判对
+```
+
+**买之前先 whois 看 source 字段**，比买完再测省一整轮。向服务商提需求时也要用这个说法：
+「需要 LACNIC 注册的段（190/191/200/201 开头）」，而不是「你们的 IP 属地不对」——
+后者对方会回「我们的 IP 确实在哥伦比亚」，然后对话就卡住了。
+
 ### ★ 验证方法：用 B 站接口当探针
 
 **不要用国际库验证**，它们判对不代表国内平台判对。B 站接口直接回显服务端看到的归属，
@@ -375,12 +412,15 @@ curl --proxy "socks5h://<代理凭证>@<入口>" \
 换出这个 IP 段。实测 `185.177.78.0/23` 整块（`.78` 和 `.79` 两段）都被判迈阿密——
 正好覆盖 RIPE 登记的那个 `/23`，所以区块内换任何 IP 都无效。
 
-选新 IP 时优先：
+选新 IP 时的优先级（按重要性排序，2026-08-17 修正）：
 
-- **ISP 为目标国本地运营商**（哥伦比亚：ETB / Claro / Movistar / Tigo）
-  ETB 是波哥大市属电信公司，业务集中在波哥大，段的归属最不易误判
-- 避开转售商持有的段
-- 能筛注册局的话选 **LACNIC**
+1. **RIR 必须是 LACNIC**（哥伦比亚：190/191/200/201 开头）——这是硬指标，
+   其他条件再好也补不上。Decodo 的 ARIN 段 ASN 是本地运营商却仍被小红书判美国。
+2. ISP 为目标国本地运营商（哥伦比亚：ETB / Claro / Movistar / Tigo / Telmex）
+3. 避开转售商持有的段
+
+采购时直接问：**「你们的哥伦比亚 IP 是 LACNIC 段还是 ARIN 段？」** 一句话就能筛掉
+不合格的供应商，不用买了再试。
 
 ---
 
@@ -471,7 +511,404 @@ ini 里补充规则紧跟对应上游规则之后。这样面板上组数不变�
 
 ---
 
-## 9. 常用排查命令
+## 10. 换任何节点都打不开某个网站：hosts 绕过了整个策略组
+
+### 症状
+
+`gist.github.com` 打不开，但 `github.com` 正常。在 yacd 里把「🚀 GitHub」组换成
+任何一个节点都没用——**换节点完全不起作用**，这是关键线索。
+
+### 根因
+
+`/etc/hosts` 里有 GitHub520 之类的加速条目：
+
+```
+37.61.54.158    gist.github.com   # Timeout
+```
+
+`37.61.54.158` 归属 **Azerbaijan · Baku · Aztelekom LLC**，根本不是 GitHub 的地址。
+行尾的 `# Timeout` 是 GitHub520 生成时自己打的标记——它测速时就知道这个 IP 不通，
+**照样写进了 hosts**。
+
+hosts 的优先级高于一切 DNS，所以：
+
+```
+hosts 硬编码  →  gist.github.com 拿到 37.61.54.158
+              →  绕过 fake-ip，也绕过策略组
+              →  Clash 老老实实把这个阿塞拜疆地址送进你选的节点
+              →  无论选哪个节点都超时
+```
+
+`gist.githubusercontent.com` 不在 hosts 里，走 fake-ip 正常，所以只有部分域名坏掉，
+更难联想到 hosts。
+
+### 排查
+
+```bash
+# 关键判据: 走代理的域名应该拿到 fake-ip(198.18.x.x)，拿到真实 IP 就说明被绕过了
+nslookup gist.github.com 127.0.0.1
+# → 37.61.54.158        ← 不是 fake-ip，有问题
+nslookup gist.githubusercontent.com 127.0.0.1
+# → 198.18.1.253        ← fake-ip，正常
+
+# 确认是 hosts 而非 DNS 污染
+grep -n "gist" /etc/hosts
+
+# 对照真实 IP
+dig +short gist.github.com @1.1.1.1
+```
+
+日志层面还有个反直觉现象：Clash 日志里**规则匹配是正确的**
+（`match RuleSet(GitHub) using 🐙 GitHub[🇺🇸 日本中转]`），因为 SNI 嗅探还原了域名。
+但目标 IP 早在 DNS 阶段就错了，规则对也没用。**日志显示规则正确 ≠ 连接目标正确**。
+
+### 解法
+
+```bash
+cp /etc/hosts /etc/hosts.bak
+sed -i '/# Timeout/d' /etc/hosts     # 先删明确失效的
+/etc/init.d/dnsmasq restart
+```
+
+更彻底的做法是**删掉整个 GitHub520 区块**。既然已经有完整的 GitHub 策略组，
+hosts 加速没有额外价值，反而是个定时炸弹：
+
+- 完全绕过 fake-ip 和策略组，面板上换节点毫无作用
+- IP 过期后是**静默失败**，表现为「某个域名莫名其妙打不开」，极难定位
+- 没有自动更新机制的话，条目只会越来越旧
+
+---
+
+## 11. 纯 IP 直连：域名规则永远补不上的盲区
+
+### 症状
+
+某个 app 的属地判定错误，但检查发现**所有相关域名都走对了节点**，
+`grep` 日志里该 app 的域名一条漏网都没有。
+
+### 根因
+
+客户端**直接连 IP，不做 DNS 解析**。日志里只有裸 IP，没有域名：
+
+```
+10.1.2.33 --> 155.102.55.30:443  match Match  using 🐟 漏网之鱼[🇺🇸 CN2GIA]
+10.1.2.33 --> 155.102.55.31:443  match Match  using 🐟 漏网之鱼[🇺🇸 CN2GIA]
+...连续 8 个地址 .28 ~ .35
+```
+
+`DOMAIN-SUFFIX` / `DOMAIN-KEYWORD` 这类规则**一条都匹配不到**，因为压根没有域名可匹配。
+无论往规则集里加多少域名都没用——这是分流的结构性盲区。
+
+实测案例：小红书评论接口走 `155.102.55.0/24`（阿里云美国丹佛），微博切到新节点后
+属地已正确，小红书仍显示美国，根因就是这一段掉进了漏网之鱼走美国节点。
+
+### 排查
+
+**盯漏网之鱼里的裸 IP**，这是唯一的发现途径：
+
+```bash
+# 找出走漏网之鱼的纯 IP（排除有域名的）
+grep "漏网之鱼" /tmp/openclash.log \
+  | sed -E 's/.*--> //; s/:[0-9]+ match.*//' \
+  | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' \
+  | sort | uniq -c | sort -rn
+```
+
+连续的地址段（如 `.28`~`.35`）几乎肯定属于同一个服务。确认归属后**整段抽查**：
+
+```bash
+for ip in 155.102.55.1 155.102.55.28 155.102.55.35 155.102.55.200; do
+  curl -s "http://ip-api.com/line/$ip?fields=as,isp,country,city"
+done
+# 五点全部一致 → 可以按 /24 整段收录
+```
+
+### 解法
+
+只能用 `IP-CIDR` 补，且必须带 `no-resolve`：
+
+```yaml
+  - IP-CIDR,155.102.55.0/24,no-resolve
+```
+
+`no-resolve` 的意义：不为这条规则触发 DNS 解析。纯 IP 连接本来就没有域名，
+不加这个参数会让 Clash 做无谓的反查，拖慢匹配。
+
+**不要图省事用 `IP-ASN`。** 例如 `155.102.55.0/24` 属于 AS24429（阿里云），
+写 `IP-ASN,24429` 会把所有走阿里云海外服务的流量都拽进运营出口。
+只按实测到的段精确覆盖，宁可以后再补。
+
+---
+
+## 12. 更新订阅后策略组全部被重置
+
+### 症状
+
+更新订阅或重启后，面板上所有策略组回到默认值（select 组的第一个选项，通常是 DIRECT）。
+运营组被重置意味着**流量直接从真实 IP 出去**，危险且不易察觉。
+
+### 根因
+
+先确认 `store-selected` 的实际状态——**注意查对文件**：
+
+```bash
+# ❌ 这是订阅转换后的源配置，里面没有 profile 段，查了会误判
+grep -A3 "^profile:" /etc/openclash/config/<配置名>.yaml
+
+# ✅ 内核实际加载的运行配置
+ps w | grep "openclash/clash" | grep -oE "\-f [^ ]+"
+grep -A3 "^profile:" /etc/openclash/统一节点管理.yaml
+# profile:
+#   store-selected: true
+#   store-fake-ip: true
+```
+
+OpenClash 在 `yml_change.sh:532` 无条件注入 `store-selected = true`，
+所以**正常情况下策略组选择是持久化的**，每日 cron 自动更新不会重置。
+
+真正会触发重置的是**改名**。`store-selected` 存的是「策略组名 → 节点名」的字符串
+映射（在 `/etc/openclash/history/<配置名>.db`）。一旦节点名或组名变化，
+旧记录失配，就回退到默认值：
+
+```
+节点  运营01     →  🇨🇴 运营01        ← 记录里的"运营01"找不到了
+组名  🇺🇸 快线   →  🇺🇸 CN2GIA快线    ← 同理
+```
+
+### 排查
+
+```bash
+# 验证持久化是否真的工作: 重启后选择应当原样保留
+/etc/init.d/openclash restart
+sleep 60
+curl -s -H "Authorization: Bearer $SECRET" \
+     "http://127.0.0.1:9090/proxies/<URL编码的组名>" | grep -oE '"now":"[^"]*"'
+```
+
+### 解法
+
+- 改名是一次性代价，改完手动恢复一次即可，之后自动更新不会再重置
+- **运营出口不要依赖策略组选择**。写进自定义规则、直接指向节点名的 AND 规则
+  不受重置影响（见 §9），这是运营链路唯一可靠的绑定方式
+- 批量改名前先导出当前选择，改完照着恢复
+
+---
+
+## 13. 区分桥接层故障与出口节点故障
+
+### 症状
+
+运营流量间歇性 `context deadline exceeded`，怀疑是代理服务商不稳定，
+但服务商侧的并发和延迟测试都正常。
+
+### 根因
+
+用 `dialer-proxy` 桥接时，链路是**两跳**：
+
+```
+客户端 → Clash → 桥接节点(dialer-proxy) → 出口节点(住宅IP) → 目标
+```
+
+任何一跳出问题都表现为同样的超时。**日志里的报错地址就是判据**：
+
+```
+dial 🎶 抖音 ... --> edith.xiaohongshu.com:443
+  error: 198.35.45.233:443 connect error: context deadline exceeded
+          ^^^^^^^^^^^^^^ 这是桥接节点(CN2GIA)的地址，不是出口节点
+```
+
+实测 2026-08-16：39 次超时**全部**来自桥接层，而同期直接测出口节点：
+并发 20 全部成功、单连接 5 次测试 IP 稳定不变。问题在桥接节点，不在服务商。
+
+### 排查
+
+```bash
+# 1. 报错地址是谁？如果是桥接节点的 IP，问题就在桥接层
+grep "deadline exceeded" /tmp/openclash.log | grep -oE "error: [0-9.]+:[0-9]+" | sort | uniq -c
+
+# 2. 单独压测出口节点，绕开桥接（直接从本机连服务商）
+for i in $(seq 1 20); do
+  (curl -s -o /dev/null --max-time 20 --proxy "socks5h://<凭证>@<入口>:<端口>" \
+        -w "%{http_code}\n" "https://example.com/" &)
+done; wait
+
+# 3. 逐个测桥接候选节点的稳定性
+for n in <节点1> <节点2>; do
+  for i in 1 2 3 4 5 6; do
+    curl -s -H "Authorization: Bearer $SECRET" \
+      "http://127.0.0.1:9090/proxies/$n/delay?url=http://www.gstatic.com/generate_204&timeout=6000"
+  done
+done
+```
+
+### 解法：桥接组用 fallback，不要用 url-test
+
+```ini
+# ❌ url-test 选延迟最低的成员 —— 快的那个会永远胜出，等于指定主节点无效
+custom_proxy_group=🇺🇸 CN2GIA快线`url-test`[]🇺🇸 CN2GIA`[]🇯🇵 日本`http://www.gstatic.com/generate_204`300,,50
+
+# ✅ fallback 按顺序取第一个可用的 —— 主节点活着就用它，挂了自动降级，恢复后切回
+custom_proxy_group=🇺🇸 CN2GIA快线`fallback`[]🇺🇸 CN2GIA`[]🇯🇵 日本`http://www.gstatic.com/generate_204`60,5
+```
+
+两个要点：
+
+- **成员顺序即优先级**，不要随意调整
+- `interval` 取 60s 而非默认 300s。桥接层故障会直接让运营流量报错，
+  5 分钟才发现太久；代价只是多一点健康检查流量
+
+**桥接节点更换不影响出口 IP**，平台看到的仍是住宅 IP，所以桥接层可以放心做自动切换——
+但运营出口组必须保持 `select` 手动固定。
+
+---
+
+## 14. 改完 gist 节点全部失效：YAML 语法与 emoji 剥离
+
+### 症状
+
+在 gist 里改了节点名，更新订阅后节点消失或名字变成空字符串，所有引用该节点的
+规则和策略组一起失效。
+
+### 根因一：`name:` 后缺空格
+
+```yaml
+# ❌ 冒号后没有空格，YAML 不把它当键值对
+- {name:🇨🇴 运营01, server: isp.decodo.com, ...}
+
+# ✅
+- {name: 🇨🇴 运营01, server: isp.decodo.com, ...}
+```
+
+YAML 的 flow mapping 要求 `key: value` 冒号后必须有空格。少一个空格，
+subconverter 解析出来是这样：
+
+```
+- {name: ""
+- {name: " 2"
+- {name: " 3"
+```
+
+**节点名全空**。危险之处在于订阅转换本身不报错，配置照常生成，
+只是所有节点静默失效。
+
+### 根因二：subconverter 会剥离节点名里的 emoji
+
+在 gist 里写 `🇨🇴 运营01`，转换后会变成 `运营01`——国旗被剥掉了。
+所以国旗要靠 ini 的 `rename` 补回：
+
+```ini
+rename=^运营01$@🇨🇴 运营01
+```
+
+注意 `^运营01$` 精确匹配的是**剥离国旗之后**的名字。这解释了一个看起来矛盾的现象：
+gist 里明明写着 `🇨🇴 社媒`，ini 里却还要一条 `rename=^社媒$@🇨🇴 社媒` 才生效。
+
+### 排查：改完 gist 先验证解析，不要直接更新订阅
+
+```bash
+# 用 subconverter 干跑一遍，不影响运行配置
+U="<URL编码的gist地址>"
+curl -s "http://127.0.0.1:25500/sub?target=clash&url=${U}" \
+  | grep -E "<你的服务器域名>" \
+  | grep -oE "name: [^,]+|dialer-proxy: [^,}]+"
+```
+
+看到预期的节点名再更新订阅。**这一步能省掉一轮「更新→发现全挂→回滚」**。
+
+### 附带：改名会牵动四个地方
+
+```
+① gist 的 name
+② ini 的 rename=^新名$@🇨🇴 新名
+③ ini 里各策略组的正则 (旧关键字) → (新关键字)
+④ 自定义规则(AND 规则)里写死的节点名
+```
+
+漏掉任何一处都是**静默失效**：AND 规则的目标找不到时，OpenClash 会打
+`Skiped The Custom Rule Because Group & Proxy Not Found`，规则被丢弃，
+运营流量退回策略组。改完务必检查：
+
+```bash
+grep -c "Skiped The Custom Rule" /tmp/openclash.log   # 应为 0
+```
+
+---
+
+## 15. 代理商按类目封锁目标站点
+
+### 症状
+
+代理本身可用（能访问一般网站），但某些站点一律连不上，
+表现为 TLS 握手完成后无响应。
+
+### 根因
+
+住宅/ISP 代理商普遍有**默认封锁类目**，与你的用途无关。Decodo 的清单：
+
+> Banking and other financial activities (anything related to financial institutions
+> and cryptocurrency financing), Government sites, Entertainment (e.g., Netflix),
+> Apple/Google stores, Ticketing, Gaming, Mailing, Streaming, Business, Telecommunications
+>
+> **Unblocking blocked websites is not possible with Dedicated ISP proxies.**
+
+关键在于**实施上按域名黑名单拦，不看用途**。文档措辞是 "cryptocurrency financing"，
+但实测纯行情站 CoinGecko（不涉及任何融资）同样被拦。
+
+### 排查：必须用中立对照组
+
+这类测试极易误判——网络抖动会让所有目标一起失败。**不要用代理商自己的接口做基线**
+（`ip.decodo.com` 之类永远是通的，说明不了问题）：
+
+```bash
+PX="socks5h://<凭证>@<入口>:<端口>"
+
+# 基线: 中立的国外站点
+for u in https://example.com/ https://www.cloudflare.com/; do
+  curl -s -o /dev/null --max-time 20 --proxy "$PX" -w "$u → %{http_code}\n"
+done
+
+# 基线为 200 时，以下结果才可信
+for u in https://www.binance.com/ https://www.coingecko.com/ https://www.netflix.com/; do
+  curl -s -o /dev/null --max-time 20 --proxy "$PX" -w "$u → %{http_code}\n"
+done
+```
+
+实测结果（同一时刻）：
+
+```
+example.com / cloudflare.com          → 200 / 200    ← 基线正常
+binance / okx / coinbase / coingecko  → 000          ← 类目封锁
+chase.com / netflix.com               → 000
+```
+
+### 顺带：端口白名单未必如文档所述
+
+Decodo 文档称 Static Residential 只开放 `80 / 443 / 563 / 8443 / 43`，
+但实测 `8080` 和 `8081` 同样可用（新浪部分服务走 8081）：
+
+```bash
+for pt in 80 443 8080 8081 8443; do
+  curl -s -o /dev/null --max-time 20 --proxy "$PX" -w "端口 $pt → %{http_code}\n" \
+       "http://portquiz.net:${pt}/"
+done
+```
+
+`portquiz.net` 在任意端口都监听，是验证端口白名单的现成靶子。
+
+### 解法
+
+把受影响的策略组指向别的节点。加密货币交易所看的是国际 IP 库，
+本来就不需要住宅 IP，改走普通节点即可：
+
+```ini
+custom_proxy_group=🪙 加密货币`select`[]🇯🇵 日本`[]🇺🇸 CN2GIA快线`[]🇺🇸 冲浪快线`[]DIRECT
+```
+
+**采购前先测**：拿试用 IP 把自己要用的关键站点跑一遍，比买完再发现快得多。
+
+---
+
+## 16. 常用排查命令
 
 ```bash
 # 规则集加载状态
