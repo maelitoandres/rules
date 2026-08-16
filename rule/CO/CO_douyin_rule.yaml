@@ -46,6 +46,11 @@ payload:
   - DOMAIN-SUFFIX,bdurl.net #数据上报 dig.bdurl.net
 #   ↑ 归属确认: NS 记录 vip3/vip4.alidns.com，与 snssdk.com/amemv.com 一致。
 #     dig = data insight gather(埋点上报)，带真实 IP 上报设备标识与网络环境。
+  - DOMAIN-KEYWORD,volces #火山引擎(字节云服务) apmplus.volces.com 应用性能监控
+#   ↑ 2026-08-16 实测: 以 apmplus.volces.com.localdomain 掉进「🐟 漏网之鱼」走美国。
+#     NS 同为 vip3/vip4.alidns.com。这是抖音的 APM 上报通道——业务流量从哥伦比亚
+#     出去、性能监控却从美国上报，是风控最容易抓的那种矛盾，必须与主流量同源。
+#     用关键字而非后缀，同时兜住 .localdomain 变形与 volcengine 等兄弟域名。
 
 # ★ 关键字规则：覆盖整个系列，避免逐个补充
 #   字节的域名池是开放集合——2026-08-16 一天内就新增 bdurl/bytehwm/bytemaimg 三个。

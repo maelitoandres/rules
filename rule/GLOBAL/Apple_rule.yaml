@@ -1,0 +1,28 @@
+# NAME: Apple_rule
+# 策略组: 🍎 苹果服务（与上游 Apple.yaml 同组）
+#
+# 说明: 上游 blackmatrix7 的 Apple.yaml 是【精确列举】域名的，没有用
+#       DOMAIN-SUFFIX,apple.com 做通配。苹果的服务域名极多且不断新增，
+#       没收录的会一路掉到「🐟 漏网之鱼」跟着走代理节点。
+#
+# 为什么这是问题:
+#       苹果在中国大陆有本地化服务（云上贵州），直连又快又正常。走美国节点
+#       反而更慢，还可能让 App Store / iCloud 的区域判定出现摇摆。
+#
+# ★ 为什么指向「🍎 苹果服务」而不是直接写 DIRECT:
+#       补充规则必须与主规则同组，否则在面板上切换苹果服务出口时这些域名不
+#       跟着切，同一批服务会从两个出口出去。该组默认 DIRECT，行为不变。
+#
+# 判断归属的方法见 rule/README.md「加规则前的验证规范」。
+
+payload:
+
+# ★ 2026-08-16 实测: uts-api.itunes.apple.com 命中兜底 Match，走了美国节点。
+#   uts = Universal Track System，Apple TV/音乐的元数据接口。
+#   上游只收了 DOMAIN,itunes.apple.com(精确) 和 DOMAIN-KEYWORD,buy.itunes.apple.com，
+#   uts-api 这个子域两条都匹配不到。
+#
+#   ⚠️ 这里刻意【不用】DOMAIN-SUFFIX,apple.com 一把梭:
+#      那会把 buy.itunes.apple.com 等【需要跟随 App Store 账号区域】的域名
+#      一起拽进直连，破坏上游规则集里已有的精细分流。只补确认漏掉的子域。
+  - DOMAIN-SUFFIX,uts-api.itunes.apple.com #Apple TV/音乐元数据接口

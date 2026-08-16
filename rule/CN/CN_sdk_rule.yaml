@@ -54,3 +54,10 @@ payload:
   - DOMAIN-SUFFIX,ntp.org
   - DOMAIN-SUFFIX,ntp.aliyun.com
   - DOMAIN-SUFFIX,ntp.tencent.com
+
+#群晖 QuickConnect（自有 NAS 的内网穿透）
+# 2026-08-16 实测: usc.quickconnect.to 及 *.fishcargo.direct.quickconnect.to
+# 掉进「🐟 漏网之鱼」走了美国节点 —— NAS 就在本地局域网，绕地球一圈再回来，
+# 传输速度直接砍到跨境带宽的水平。QuickConnect 会先尝试打洞直连内网地址，
+# 走代理反而会让它误判网络环境、退化成中继模式。
+  - DOMAIN-SUFFIX,quickconnect.to
