@@ -16,3 +16,11 @@ payload:
   - DOMAIN-SUFFIX,vweixinthumb.tc.qq.com
   - DOMAIN-SUFFIX,wxsnsdythumb.wxs.qq.com
   - DOMAIN-SUFFIX,wxapp.tc.qq.com
+
+# ★ 上游 WeChat.yaml 漏掉的 .cn 后缀域名（2026-08-16 实测）
+#   上游收的是 weixin.qq.com，而这批是 qq.com.cn / wechatpay.cn ——
+#   顶级域不同，DOMAIN-SUFFIX 完全匹配不到，全部落到 ChinaDomain 走了直连。
+#   NS 记录确认归属腾讯: qq.com.cn → ns1/ns3/ns4.qq.com
+#                        wxqcloud.qq.com.cn → ns-tel1/ns-tel2.qq.com
+  - DOMAIN-SUFFIX,qq.com.cn #含 mmec/prewxacode.wxqcloud.qq.com.cn、dns.weixin.qq.com.cn
+  - DOMAIN-SUFFIX,wechatpay.cn #含 paydns.wechatpay.cn、szshort.mixpay.wechatpay.cn
