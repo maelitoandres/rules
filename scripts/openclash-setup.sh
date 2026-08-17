@@ -74,11 +74,91 @@ for f in openclash_custom_rules.list openclash_custom_rules_2.list; do
   rm -f "$T"
 done
 
+
+# ══════════════════════════════════════════════════════════════
+# 嗅探器: override-destination 必须为 true
+# ══════════════════════════════════════════════════════════════
+# OpenClash 默认全局 override-destination 是 false（只有 HTTP 段单独 true）。
+# 它的含义是「嗅探到域名后不用它重新匹配规则」。于是当 app 用缓存的真实 IP
+# 直接发起 TLS 连接时，Clash 匹配规则的瞬间手上只有 IP，所有域名规则落空，
+# 一路掉到 GEOIP,CN 走了直连 —— 监控里显示成「这个域名走了 DIRECT」，
+# 看起来像规则顺序错了，实际是嗅探结果没被采纳。
+#
+# 中国办公室实测: 改之前字节系有 9 个域名走直连（抖音评论属地因此忽变忽不变），
+# 改之后降到 0。这一项不改，运营 IP 的效果会时灵时不灵。
+#
+# ⚠️ 只改全局那一处（sniffer: 下第一层），HTTP 段里的本来就是 true。
+S=$D/openclash_custom_sniffer.yaml
+if [ -f "$S" ]; then
+  cp "$S" "$BK/openclash_custom_sniffer.yaml"
+  if grep -qE "^  override-destination: false" "$S"; then
+    sed -i "s|^  override-destination: false|  override-destination: true|" "$S"
+    echo "  嗅探 override-destination: false → true"
+  else
+    echo "  嗅探 override-destination 已是 true，跳过"
+  fi
+  # parse-pure-ip 让无域名的纯 IP 连接也被嗅探，配合上一项才完整
+  if grep -qE "^  parse-pure-ip: false" "$S"; then
+    sed -i "s|^  parse-pure-ip: false|  parse-pure-ip: true|" "$S"
+    echo "  嗅探 parse-pure-ip: false → true"
+  fi
+else
+  echo "  ⚠️ 未找到 $S，跳过嗅探配置"
+fi
+
+# ══════════════════════════════════════════════════════════════
+# fake-ip filter: 必须移除通配的 +.qq.com
+# ══════════════════════════════════════════════════════════════
+# 在 fake-ip-filter 里的域名走真实 DNS、拿到真实 IP，Clash 只看得到 IP
+# 看不到域名，基于域名的 RULE-SET 规则永远匹配不上 —— 微信的分流会整个失效。
+# 前面那 9 条 QQ 音乐的精确条目要保留，只注释通配的那条。
+F=$D/openclash_custom_fake_filter.list
+if [ -f "$F" ]; then
+  cp "$F" "$BK/openclash_custom_fake_filter.list"
+  if grep -qE "^\+\.qq\.com$" "$F"; then
+    sed -i "s|^+\.qq\.com$|# +.qq.com  # 已移除: 微信需走 fake-ip 才能匹配域名规则（回滚: 删掉行首的 # ）|" "$F"
+    echo "  fake-ip filter: 已注释 +.qq.com"
+  else
+    echo "  fake-ip filter: +.qq.com 已处理，跳过"
+  fi
+else
+  echo "  ⚠️ 未找到 $F，跳过 fake-ip filter 配置"
+fi
+
+# ══════════════════════════════════════════════════════════════
+# UCI 开关
+# ══════════════════════════════════════════════════════════════
+# enable_custom_clash_rules 默认为 0，不开的话上面装的自定义规则【完全不会被读取】
+# emoji=false 配合 ini 里的 rename 保留国旗（subconverter 的 emoji 语义是
+#             「先剥掉原有的」，true 会按名字猜国家重加，出现双国旗）
+set_uci() {
+  CUR=$(uci -q get "$1")
+  if [ "$CUR" != "$2" ]; then
+    uci set "$1=$2"; echo "  UCI $1: ${CUR:-未设置} → $2"; UCI_DIRTY=1
+  else
+    echo "  UCI $1 已是 $2，跳过"
+  fi
+}
+UCI_DIRTY=0
+set_uci openclash.config.enable_custom_clash_rules 1
+set_uci openclash.@config_subscribe[0].emoji false
+[ "$UCI_DIRTY" = "1" ] && uci commit openclash && echo "  UCI 已提交"
+
+# API 密码不自动设置 —— 需要人工选择强密码
+PW=$(uci -q get openclash.config.dashboard_password)
+case "$PW" in
+  ""|123456) echo "  ⚠️ dashboard_password 仍是默认值，请手动改成强密码:";
+             echo "       uci set openclash.config.dashboard_password='<强密码>' && uci commit openclash" ;;
+  *) echo "  dashboard_password 已自定义" ;;
+esac
+
 echo ""
 echo "=== 生效确认 ==="
 echo "  设备1 规则: $(grep -cE "^- AND,\(\(SRC-IP-CIDR,$OPS_IP1/32\)" $D/openclash_custom_rules.list) 条"
 echo "  设备2 规则: $(grep -cE "^- AND,\(\(SRC-IP-CIDR,$OPS_IP2/32\)" $D/openclash_custom_rules.list) 条"
 echo "  设备2 兜底: $(grep -cE "^- SRC-IP-CIDR,$OPS_IP2/32," $D/openclash_custom_rules_2.list) 条"
+echo "  嗅探 override: $(grep -cE "^  override-destination: true" $D/openclash_custom_sniffer.yaml 2>/dev/null)"
+echo "  fake-ip +.qq.com 已注释: $(grep -cE "^# \+\.qq\.com" $D/openclash_custom_fake_filter.list 2>/dev/null)"
 echo ""
 echo "✅ 完成。备份保留在 $BK"
 echo ""
