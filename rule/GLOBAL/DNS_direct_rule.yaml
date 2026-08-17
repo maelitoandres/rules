@@ -1,0 +1,51 @@
+# NAME: DNS_direct_rule
+# 策略组: 🎯 全球直连
+#
+# ★ 本文件必须是 ini 里【第一条】ruleset，排在所有业务规则集之前。
+#
+# 解决的问题:
+#   开启 respect-rules 后，mihomo 自身发往上游 DNS 的连接也会走规则分流。
+#   而 119.29.29.29(DNSPod) 属于 AS132203 腾讯，正好被 WeChat.yaml 末尾的
+#   IP-ASN,132203 命中 —— 「💬 微信」组一旦切到运营节点，DNS 查询就跟着
+#   走境外，每次解析多绕地球一圈半，且解析结果变成境外视角的 CDN 节点。
+#
+#   更危险的是循环依赖: proxy-server-nameserver 同样配置了 119.29.29.29，
+#   它负责解析代理服务器域名(如 isp.decodo.com)。若它走代理，就成了
+#   「要连代理得先解析、解析又要走代理」的死结。目前靠 223.5.5.5
+#   (阿里 AS37963，不在 132203) 兜住才没出事 —— 那是运气，不是设计。
+#
+# ★ 为什么不去改 WeChat.yaml 移除 IP-ASN,132203:
+#   1) 那条规则是必要的。微信有大量纯 IP 连接（日志实测 182.254.118.119、
+#      43.159.25.122 都没有域名），域名规则一条都匹配不上，全靠 ASN 兜住。
+#      尤其 43.159.25.122 在【新加坡】—— 移除后它不匹配 ChinaIp，会掉进
+#      「🐟 漏网之鱼」走美国节点。为修一个误伤制造一个真实错误，不划算。
+#   2) WeChat.yaml 是上游 blackmatrix7 维护的文件，改它意味着 fork 一份
+#      31 条规则的副本并持续同步，而微信的域名和 IP 段变动频繁。
+#   3) 本方案不依赖任何上游规则集的内容 —— 即使将来别的规则集也开始匹配
+#      这些地址，钉死规则照样有效。
+#
+#   本质是【精确规则优先于通用规则】: IP-CIDR,/32 是单地址精确声明，
+#   IP-ASN 是覆盖数万地址的宽泛匹配，让精确的排在前面，两者各司其职。
+#
+# ⚠️ 改动 nameserver / proxy-server-nameserver / default-nameserver 时，
+#    必须同步维护本文件的地址清单。
+#
+# 验证方式（日志里应当是 IPCIDR 而不是 RuleSet）:
+#   grep "mihomo --> " /tmp/openclash.log | grep ":53"
+#   ✅ 119.29.29.29:53 match IPCIDR(119.29.29.29/32) → DIRECT
+#   ❌ 119.29.29.29:53 match RuleSet(WeChat) → 💬 微信[...]
+
+payload:
+
+#—— 腾讯 DNSPod（AS132203，会被 WeChat.yaml 的 IP-ASN,132203 命中）——
+  - IP-CIDR,119.29.29.29/32,no-resolve
+  - IP-CIDR,119.29.29.99/32,no-resolve
+  - IP-CIDR,1.12.12.12/32,no-resolve
+  - IP-CIDR,1.12.12.21/32,no-resolve
+
+#—— 腾讯 DoH doh.pub（AS45090，当前未被命中，预防性加固）——
+  - IP-CIDR,120.53.53.53/32,no-resolve
+
+#—— 阿里 AliDNS（AS37963，当前未被命中，预防性加固）——
+  - IP-CIDR,223.5.5.5/32,no-resolve
+  - IP-CIDR,223.6.6.6/32,no-resolve
