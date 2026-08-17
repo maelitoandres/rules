@@ -161,7 +161,7 @@ else
       grep "^openclash\.@dns_servers\[" "$U" | while IFS= read -r line; do
         N=$(echo "$line" | sed -E "s/^openclash\.@dns_servers\[([0-9]+)\].*/\1/")
         K=$(echo "$line" | sed -E "s/^[^.]+\.[^.]+\.([^=]+)=.*/\1/")
-        V=$(echo "$line" | cut -d= -f2- | tr -d "\047")
+        V=$(echo "$line" | cut -d= -f2- | tr -d "\047\r")
         if [ "$N" != "$IDX" ]; then uci -q add openclash dns_servers >/dev/null; IDX=$N; fi
         uci -q set "openclash.@dns_servers[-1].$K=$V"
       done
@@ -177,8 +177,8 @@ else
     #    en_mode 变成 fake-ip'、dns_port 变成 7874'。
     #    tr -d "\047" 直接删掉所有单引号，UCI 的值里不含单引号，安全。
     grep -E "^openclash\.(config|@config_subscribe)" "$U" | while IFS= read -r line; do
-      K=$(echo "$line" | sed -E "s/=.*//")
-      V=$(echo "$line" | cut -d= -f2- | tr -d "\047")
+      K=$(echo "$line" | sed -E "s/=.*//" | tr -d "\r")
+      V=$(echo "$line" | cut -d= -f2- | tr -d "\047\r")
       [ -n "$K" ] || continue
       CUR=$(uci -q get "$K" 2>/dev/null)
       [ "$CUR" = "$V" ] && continue

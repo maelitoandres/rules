@@ -1,0 +1,7 @@
+# 配置与脚本强制 LF —— CRLF 会让 shell 解析出末尾带 \r 的值，
+# 应用端比对永远判为「不同」，进而全量重写配置（2026-08-17 事故）
+*.sh        text eol=lf
+*.list      text eol=lf
+*.conf      text eol=lf
+*.ini       text eol=lf
+*.yaml      text eol=lf

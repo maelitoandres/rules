@@ -49,9 +49,13 @@ uci -q show openclash >/dev/null 2>&1 || { echo "❌ 读不到 openclash 配置"
   echo ""
 } > "$OUT"
 
+# tr -d '\r' 是必须的 —— 若通过 expect/ssh 等带终端模拟的通道取回文件，
+# 输出会变成 CRLF，每个值末尾多一个不可见的 \r，导致应用端逐项比对
+# 永远判为「不同」而全量重写配置（2026-08-17 实测 387 项全部损坏）。
 uci -q show openclash 2>/dev/null \
   | grep -vE "$EXCLUDE" \
   | grep -E "=" \
+  | tr -d '\r' \
   | sort >> "$OUT"
 
 # ── 强制自检: 宁可不生成，也不能泄漏凭证 ──
