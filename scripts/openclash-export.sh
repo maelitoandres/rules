@@ -26,8 +26,13 @@ set -u
 OUT="${1:-./openclash-uci.conf}"
 
 # ── 排除清单 ──
-# 用 grep -E 的模式匹配，命中即跳过
-EXCLUDE='dashboard_password|@config_subscribe\[[0-9]+\]\.(address|custom_template_url|name)$'
+# ⚠️ 必须用 '=' 结尾而不是 '$' —— uci show 的输出是 key='value'，
+#    字段名后面还有 =值，用 $ 锚点会永远匹配不到（2026-08-17 踩过，
+#    导致订阅 address 连同 JMS service ID 和 UUID 一起被导出）。
+EXCLUDE="dashboard_password=|@config_subscribe\[[0-9]+\]\.(address|custom_template_url|name)="
+
+# 导出后的强制自检模式 —— 命中任何一条就中止，不生成文件
+LEAK='jmssub|gist\.github|decodo|password=|token=|uuid=|service=[0-9]'
 
 command -v uci >/dev/null 2>&1 || { echo "❌ 未找到 uci"; exit 1; }
 uci -q show openclash >/dev/null 2>&1 || { echo "❌ 读不到 openclash 配置"; exit 1; }
@@ -49,6 +54,14 @@ uci -q show openclash 2>/dev/null \
   | grep -E "=" \
   | sort >> "$OUT"
 
+# ── 强制自检: 宁可不生成，也不能泄漏凭证 ──
+if grep -iqE "$LEAK" "$OUT"; then
+  echo "❌ 检测到疑似凭证，已中止并删除输出文件:"
+  grep -inE "$LEAK" "$OUT" | sed -E "s/=.*/=***/" | head -5
+  rm -f "$OUT"
+  exit 1
+fi
+
 TOTAL=$(uci -q show openclash 2>/dev/null | grep -cE "=")
 KEPT=$(grep -cE "^openclash\." "$OUT")
 SKIP=$((TOTAL - KEPT))
@@ -64,5 +77,4 @@ for s in config @dns_servers @config_subscribe; do
   printf "    %-20s %s 项\n" "$s" "$N"
 done
 echo ""
-echo "  ⚠️ 提交前请确认没有凭证泄漏:"
-echo "     grep -iE 'password|token|uuid|address=' $OUT"
+echo "  ✅ 凭证自检通过（脚本已自动校验，未通过会中止并删除输出）"
