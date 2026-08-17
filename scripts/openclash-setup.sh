@@ -23,6 +23,9 @@
 #   OPS_IP1 = 运营设备1（社媒 app 走专属出口，其余流量走本地）
 #   OPS_IP2 = 运营设备2（全部流量走专属出口，专机专用）
 #
+#   DRY_RUN=1 sh openclash-setup.sh    只显示 UCI 会改什么，不实际写入
+#   SKIP_UCI=1 sh openclash-setup.sh   跳过 UCI 同步，只装规则文件
+#
 # 幂等: 可重复执行。安装前备份，安装后校验，失败自动回滚。
 
 set -u
@@ -167,17 +170,42 @@ else
     fi
 
     # ── config 与 @config_subscribe: 逐项比对，仅在不同时写入 ──
-    NSET=0
+    # ⚠️ 必须用 sed 剥离引号，不能用 ${V%\'} 这类参数展开 ——
+    #    在 ash/dash 里那个转义不生效，会把 '1' 写成 1'（带尾引号），
+    #    导致每一项都被判为"不同"而全量重写，配置整个损坏。
+    #    2026-08-17 实测踩到: en_mode 变成 fake-ip'、dns_port 变成 7874'。
     grep -E "^openclash\.(config|@config_subscribe)" "$U" | while IFS= read -r line; do
-      K="${line%%=*}"; V="${line#*=}"; V="${V%\'}"; V="${V#\'}"
-      case "$K" in *"="*|"") continue ;; esac
+      K=$(echo "$line" | sed -E "s/=.*//")
+      V=$(echo "$line" | sed -E "s/^[^=]+=//; s/^'//; s/'$//")
+      [ -n "$K" ] || continue
       CUR=$(uci -q get "$K" 2>/dev/null)
       [ "$CUR" = "$V" ] && continue
-      uci -q set "$K=$V" && echo "    $K: ${CUR:-<未设置>} → $V"
+      if [ "${DRY_RUN:-0}" = "1" ]; then
+        echo "    [dry-run] $K: ${CUR:-<未设置>} → $V"
+      else
+        uci -q set "$K=$V" && echo "    $K: ${CUR:-<未设置>} → $V"
+      fi
     done
     NSET=$(uci -q changes openclash | wc -l)
     [ "$NSET" -gt 0 ] && CHANGED=1
     echo "  UCI config/subscribe: $NSET 项变更"
+
+    # ── 写入结果抽检: 值里混进引号说明剥离失败，立即回滚 ──
+    if [ "${DRY_RUN:-0}" != "1" ] && [ "$NSET" -gt 0 ]; then
+      BAD=0
+      for k in en_mode proxy_mode dns_port http_port; do
+        VAL=$(uci -q get "openclash.config.$k")
+        case "$VAL" in *\'*|*\"*) echo "  ❌ $k 的值异常: [$VAL]"; BAD=1 ;; esac
+      done
+      if [ "$BAD" = "1" ]; then
+        echo "  ⚠️ 检测到配置损坏，回滚中…"
+        uci -q revert openclash
+        cp "$BK/openclash-uci-before.conf" /etc/config/openclash 2>/dev/null
+        uci -q commit openclash 2>/dev/null
+        echo "  已回滚到 $BK/openclash-uci-before.conf"
+        exit 1
+      fi
+    fi
 
     if [ "$CHANGED" = "1" ]; then
       uci commit openclash && echo "  UCI 已提交（改动前配置备份于 $BK/openclash-uci-before.conf）"
