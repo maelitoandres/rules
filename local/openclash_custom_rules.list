@@ -33,28 +33,28 @@ rules:
 
 #—— 抖音 ——
 # CO_douyin_rule 含字节系域名、关键字兜底、以及 PCDN 域名
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,DouYin)),🇨🇴 运营01
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,CO_douyin_rule)),🇨🇴 运营01
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,DouYin)),🇨🇴 运营02
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,CO_douyin_rule)),🇨🇴 运营02
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,DouYin)),ð¨ð´ 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,CO_douyin_rule)),ð¨ð´ 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,DouYin)),ð¨ð´ 运营02
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,CO_douyin_rule)),ð¨ð´ 运营02
 
 #—— 小红书 ——
 # CO_xhs_rule 含 IP-ASN,139341(ACE CDN) 与阿里云海外三段
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,XiaoHongShu)),🇨🇴 运营01
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,CO_xhs_rule)),🇨🇴 运营01
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,XiaoHongShu)),🇨🇴 运营02
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,CO_xhs_rule)),🇨🇴 运营02
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,XiaoHongShu)),ð¨ð´ 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,CO_xhs_rule)),ð¨ð´ 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,XiaoHongShu)),ð¨ð´ 运营02
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,CO_xhs_rule)),ð¨ð´ 运营02
 
 #—— 微博 ——
 # CO_weibo_rule 含 sinaimg 等关键字与 EdgeNext/Zenlayer CDN 段
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,Weibo)),🇨🇴 运营01
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,CO_weibo_rule)),🇨🇴 运营01
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,Weibo)),🇨🇴 运营02
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,CO_weibo_rule)),🇨🇴 运营02
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,Weibo)),ð¨ð´ 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,CO_weibo_rule)),ð¨ð´ 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,Weibo)),ð¨ð´ 运营02
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,CO_weibo_rule)),ð¨ð´ 运营02
 
 #—— TikTok ——
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,TikTok)),🇨🇴 运营01
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,TikTok)),🇨🇴 运营02
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,TikTok)),ð¨ð´ 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,TikTok)),ð¨ð´ 运营02
 
 #—— 微信（含视频号）——
 # 必须同时覆盖 WeChat 与 CO_wechat_rule: 视频号的评论/点赞/发布走微信主体的
@@ -64,10 +64,10 @@ rules:
 # ⚠️ 副作用: 这两台设备的微信【全部功能】都走境外 —— 聊天延迟增加约 400ms，
 #    微信支付走境外 IP 可能触发风控。仅适用于专用运营小号的设备。
 #    若某台设备也用于日常微信，删掉它的 WeChat 那条，只保留 CO_wechat_rule。
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,WeChat)),🇨🇴 运营01
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,CO_wechat_rule)),🇨🇴 运营01
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,WeChat)),🇨🇴 运营02
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,CO_wechat_rule)),🇨🇴 运营02
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,WeChat)),ð¨ð´ 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,CO_wechat_rule)),ð¨ð´ 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,WeChat)),ð¨ð´ 运营02
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,CO_wechat_rule)),ð¨ð´ 运营02
 
 #—— Meta 系（Instagram / Threads / Facebook）——
 # 必须整组覆盖而不能只绑 Instagram: IG 的图片视频走 fbcdn.net（收在 Meta_rule
@@ -77,21 +77,21 @@ rules:
 #
 # ⚠️ Meta 对数据中心 IP 的识别远比国内平台严格，Decodo 是 hosting:true 的
 #    ISP 代理。首次切换请先用小号验证，可能触发验证码或账号验证。
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,Instagram)),🇨🇴 运营01
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,Threads)),🇨🇴 运营01
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,Meta_rule)),🇨🇴 运营01
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,Facebook)),🇨🇴 运营01
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,Instagram)),🇨🇴 运营02
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,Threads)),🇨🇴 运营02
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,Meta_rule)),🇨🇴 运营02
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,Facebook)),🇨🇴 运营02
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,Instagram)),ð¨ð´ 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,Threads)),ð¨ð´ 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,Meta_rule)),ð¨ð´ 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,Facebook)),ð¨ð´ 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,Instagram)),ð¨ð´ 运营02
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,Threads)),ð¨ð´ 运营02
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,Meta_rule)),ð¨ð´ 运营02
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,Facebook)),ð¨ð´ 运营02
 
 #—— CO补充（跨 app 通用域名的兜底）——
 # 必须覆盖，否则新加进 CO_social_rule 的域名在运营设备上不走专属出口，
 # 而是跟随「🇨🇴 CO补充」组(默认 DIRECT) —— 等于漏网域名直接暴露真实 IP。
 # 当前收录: 数美风控 fengkongcloud（设备指纹上报，必须与业务流量同源）。
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,CO_social_rule)),🇨🇴 运营01
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,CO_social_rule)),🇨🇴 运营02
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,CO_social_rule)),ð¨ð´ 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,CO_social_rule)),ð¨ð´ 运营02
 
 # 注: WhatsApp 刻意【不】绑定运营出口。它账号绑手机号，登录 IP 跳变会触发
 #     封号；且与社媒运营无关，保持走「🇺🇸 CN2GIA快线」更稳。
