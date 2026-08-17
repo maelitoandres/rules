@@ -15,6 +15,49 @@
 
 ---
 
+## 0.5 配置的四层结构（先读这个）
+
+这套系统的配置分散在四个地方，同步方式各不相同。**搞清楚一项配置属于哪一层，
+就知道改完之后要做什么**——这是排查「为什么我改了没生效」的第一步。
+
+| 层 | 内容 | 位置 | 改完之后 |
+|---|---|---|---|
+| **① 订阅模板** | `cfg/cn·us·co.ini`<br>策略组定义、ruleset 顺序 | 仓库 | push → **更新订阅** |
+| **② 规则集** | `rule/**/*.yaml`<br>域名与 IP 段 | 仓库 | push → **刷新 provider**（秒级生效，不必更新订阅） |
+| **③ 本地文件** | AND 规则、嗅探、fake-ip filter | 路由器<br>`/etc/openclash/custom/` | 跑 `openclash-setup.sh` → **重新生成配置** |
+| **④ 容器定制** | `pref.toml` 的上限与默认模板 | subconverter 容器内 | 跑 `subconverter-setup.sh`（仅首次/重建容器时） |
+
+①② 靠仓库自动同步到三地，③④ 靠脚本部署——但**内容都在仓库里，仓库始终是唯一源**。
+
+### 为什么 ③ 不能像 ②那样自动同步
+
+OpenClash 的自定义规则**只能读本地文件，不支持 URL 加载**。曾尝试把 AND 规则
+改写成 rule-provider，实测不可行：
+
+```
+AND + DOMAIN-SUFFIX / IP-CIDR   → ✅ provider 接受
+AND + RULE-SET（嵌套 provider） → ❌ 静默丢弃，ruleCount 不变且无报错
+```
+
+而全部 AND 规则都依赖 `RULE-SET` 复用规则集（这正是它们的价值——不必重复列几百个
+域名），所以只能走脚本部署这条路。
+
+### 日常改规则不需要跑任何脚本
+
+最常见的操作是往规则集里补域名，那属于第②层：
+
+```bash
+vim rule/CO/CO_douyin_rule.yaml
+git commit -am "补 xxx 域名" && git push
+# 刷新 provider，秒级生效
+curl -X PUT -H "Authorization: Bearer $PW" \
+     "http://127.0.0.1:9090/providers/rules/CO_douyin_rule"
+```
+
+只有这些情况才需要脚本：**部署新地点**、**改动 AND 规则**、**重建 subconverter 容器**。
+
+---
+
 ## 1. 前置条件
 
 | 项 | 要求 | 中国办公室实际 |
@@ -201,38 +244,63 @@ sed -i "s|^  override-destination: false|  override-destination: true|" $F
 
 覆盖范围：TLS/QUIC/HTTP 有 SNI 或 Host 头的连接都能救回；纯 TCP 无 SNI、或启用了 ECH 的连接仍无法还原域名。
 
-### 3.7 本地配置项清单（**不随仓库同步，每地必须手动配置**）
+### 3.7 本地配置项：跑脚本，不要手敲
 
-仓库里只有 `cfg/*.ini` 和 `rule/*.yaml`。以下都是路由器本地的文件或 UCI 设置，**OpenClash 不支持从 URL 加载**，另外两地部署时必须逐项配置：
-
-| 配置项 | 位置 | 值 | 作用 |
-|---|---|---|---|
-| 嗅探重定向 | `custom/openclash_custom_sniffer.yaml` | `override-destination: true` | 见 §3.6，**最关键** |
-| fake-ip 过滤 | `custom/openclash_custom_fake_filter.list` | 注释掉 `+.qq.com` | 微信域名规则才能匹配 |
-| 自定义规则 | `custom/openclash_custom_rules.list` | DNS 直连 + 运营设备 AND 规则 | 见 §4.1，**DNS 那段必配** |
-| 兜底规则 | `custom/openclash_custom_rules_2.list` | 全流量走运营出口的设备 | 插在 MATCH 之前 |
-| 自定义规则开关 | `uci openclash.config.enable_custom_clash_rules` | `1` | 默认 0，不开则上一项完全不生效 |
-| emoji 处理 | `uci openclash.@config_subscribe[0].emoji` | `false` | 配合 ini 里的 rename 保留国旗 |
-| API 密码 | `uci openclash.config.dashboard_password` | 强密码 | 默认 `123456` 且端口对局域网开放 |
-| 自动清缓存钩子 | `custom/openclash_custom_overwrite.sh` | 见 §6.2.2 | 手动 restart 时自动拉取最新规则 |
-
-一次性配置命令：
+第③层（见 §0.5）的全部配置由 `openclash-setup.sh` 一次装好：
 
 ```bash
-# 嗅探
-sed -i "s|^  override-destination: false|  override-destination: true|" \
-  /etc/openclash/custom/openclash_custom_sniffer.yaml
-# fake-ip
-sed -i "s|^+\.qq\.com$|# +.qq.com|" \
-  /etc/openclash/custom/openclash_custom_fake_filter.list
-# UCI
-uci set openclash.config.enable_custom_clash_rules='1'
-uci set openclash.@config_subscribe[0].emoji='false'
-uci set openclash.config.dashboard_password='<强密码>'
-uci commit openclash
-/etc/init.d/openclash restart
+curl -sL https://raw.githubusercontent.com/maelitoandres/rules/main/scripts/openclash-setup.sh -o /root/openclash-setup.sh
+chmod +x /root/openclash-setup.sh
+
+# 各地设备 IP 不同时用环境变量传入
+OPS_IP1=10.1.2.33 OPS_IP2=10.1.2.34 sh /root/openclash-setup.sh
 ```
 
+脚本覆盖的项：
+
+| 配置项 | 位置 | 作用 |
+|---|---|---|
+| 运营设备 AND 规则 | `custom/openclash_custom_rules.list` | 从仓库 `local/` 拉取，占位符替换设备 IP |
+| 全流量兜底规则 | `custom/openclash_custom_rules_2.list` | 插在 MATCH 之前，等价于按源 IP 分流漏网之鱼 |
+| 嗅探重定向 | `custom/openclash_custom_sniffer.yaml` | `override-destination: true`，见 §3.6，**最关键** |
+| fake-ip 过滤 | `custom/openclash_custom_fake_filter.list` | 注释通配的 `+.qq.com`，微信域名规则才能匹配 |
+| 自定义规则开关 | `uci enable_custom_clash_rules` | 默认 0，不开则上面两个规则文件**完全不被读取** |
+| emoji 处理 | `uci emoji` | `false`，配合 ini 的 rename 保留国旗 |
+
+脚本是**幂等**的：已配置的项会跳过，改动前自动备份到 `/root/openclash-custom-backup-<时间戳>/`。
+
+### 唯一需要手动做的：API 密码
+
+```bash
+uci set openclash.config.dashboard_password='<强密码>'
+uci commit openclash
+```
+
+默认是 `123456` 且端口对整个局域网开放。脚本只检测不自动设——密码该你自己选。
+
+> `external-controller` 无法改为 `127.0.0.1`：LuCI 的面板入口是让**浏览器直连**
+> `路由器IP:9090`，改了 yacd 就打不开。只能靠强密码防护。
+
+### 可选：同步 UCI 设置（插件设置 / 覆写设置）
+
+在一个地点用 LuCI 调好参数后，可以导出给其他地点复用：
+
+```bash
+# 地点 A：导出（自动排除密码、订阅地址、模板 URL）
+sh scripts/openclash-export.sh /root/openclash-uci.conf
+# 取回后放进仓库 local/openclash-uci.conf 并提交
+
+# 地点 B：先预览，确认无误再执行
+DRY_RUN=1 SYNC_UCI=1 sh /root/openclash-setup.sh
+SYNC_UCI=1 sh /root/openclash-setup.sh
+```
+
+> ⚠️ **默认关闭**，需显式 `SYNC_UCI=1`。它会改动 300+ 项配置，风险远高于装规则文件。
+> 首次在某地使用**务必先跑 `DRY_RUN=1`**——那是纯只读的，会列出将要改的每一项。
+>
+> ⚠️ 导出的文件若经 `expect`/带终端模拟的通道取回，会变成 CRLF。每个值末尾多一个
+> 不可见的 `\r`，应用端比对将全部判为「不同」而重写整个配置。仓库已用
+> `.gitattributes` 强制 `eol=lf`，导出与应用两端也都做了 `tr -d '\r'`。
 ---
 
 ## 4. 运营出口绑定（仅需要 IP 属地伪装时）

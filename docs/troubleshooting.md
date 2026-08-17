@@ -3,6 +3,10 @@
 > 本文按「症状 → 根因 → 排查方法 → 解法」组织，每条都来自 2026-08-15 ~ 17 的实际故障。
 > 涉及 OpenClash 或 subconverter 机制的结论均标注了源码/文档出处——**遇到新问题先查官方文档，
 > 不要凭推断下结论**（这条规矩本身就是踩坑换来的，见文末「方法论」）。
+>
+> **本文档记录的多数故障都是「静默失败」**：服务照常运行、界面没有报错，只有分流悄悄跑偏。
+> 这类问题的共性是「症状与根因距离极远」，所以每节都尽量写清**判据**——即那个能一眼
+> 认出根因的特征，而不只是解法。
 
 ---
 
@@ -908,7 +912,79 @@ custom_proxy_group=🪙 加密货币`select`[]🇯🇵 日本`[]🇺🇸 CN2GIA�
 
 ---
 
-## 16. 常用排查命令
+## 16. 策略组突然变成一堆陌生的名字（subconverter 静默超限）
+
+### 症状
+
+更新订阅后一切「正常」——没有报错、配置照常生成、OpenClash 照常运行，
+但面板上的策略组全变了：出现「节点选择」「自动选择」「NETFLIX」「广告拦截」
+「运营劫持」这类从没配过的组，自己的 40 个组一个不剩。分流全乱。
+
+### 根因
+
+subconverter 的 `pref.toml` 有一项 **`max_allowed_rulesets = 64`**。
+一旦 ini 里的 `ruleset=` 行超过这个数，subconverter **静默返回空配置，不报任何错误**，
+OpenClash 拿到后回退到 `pref.toml` 里 `snippets/groups.toml` 定义的 13 个默认组。
+
+2026-08-17 实测: 基线 61 条 ruleset，新增 4 条 Meta 系规则集后达到 65 条，
+超限 1 条，服务中断。
+
+### 排查：一个反直觉的判据
+
+这个故障最难的地方是症状与根因毫无关联。有效的定位方法是**逐条删除新增的 ruleset**：
+
+```bash
+# 用 subconverter 干跑，不影响运行配置
+ENC() { echo -n "$1" | sed "s/:/%3A/g; s|/|%2F|g; s/?/%3F/g; s/&/%26/g; s/=/%3D/g; s/|/%7C/g"; }
+SUB=$(uci get openclash.@config_subscribe[0].address)
+
+for f in c1 c2 c3 c4; do   # 每个文件删掉一条不同的新增 ruleset
+  R=$(curl -s "http://127.0.0.1:25500/sub?target=clash&url=$(ENC "$SUB")&config=$f.ini&expand=false")
+  echo "$f: $(echo "$R" | grep -c '^  - name:') 个策略组"
+done
+```
+
+**如果去掉任意一条都能恢复，那就是撞了数量上限，不是某条规则的内容有问题。**
+这个特征一旦认出来，几秒就能定位；认不出来会在 ini 语法、特殊字符、CDN 缓存、
+subconverter 缓存之间来回绕（实际耗掉了四轮排查）。
+
+同样的静默失败还可能来自 `pref.toml` 里另外两项：`max_allowed_rules`、
+`max_allowed_download_size`。
+
+### 解法
+
+```bash
+sh scripts/subconverter-setup.sh
+```
+
+脚本做两件事：
+
+1. **`max_allowed_rulesets` 提到 256**
+2. **禁用默认模板**——注释掉 `pref.toml` 里 `[[custom_groups]]` 与 `[[rulesets]]`
+   两段的 `import`，这样解析失败时返回 **0 个策略组**而不是伪装成 13 个默认组，
+   问题立即暴露而非静默降级
+
+> ⚠️ 禁用默认模板时**必须连 `[[custom_groups]]` 表头一起注释**。只注释 `import`
+> 行会留下空表，TOML 解析器报 `key "name" not found` 并使容器崩溃（实测踩过）。
+> 脚本里已写死正确做法，不要手动改。
+
+⚠️ 容器定制存在可写层，`docker restart` 会保留，**`docker rm` 重建则丢失**——
+重建容器后必须重跑脚本。
+
+### 预防
+
+改完 ini 之后、更新订阅之前，先跑自检：
+
+```bash
+sh scripts/preflight.sh
+```
+
+它会干跑一遍转换并校验配置大小、策略组数、节点数、关键内容，以及是否出现
+默认模板特征，不合格直接拒绝放行。这一步能挡住本节所有故障。
+
+---
+
+## 17. 常用排查命令
 
 ```bash
 # 规则集加载状态
