@@ -23,8 +23,9 @@
 #   OPS_IP1 = 运营设备1（社媒 app 走专属出口，其余流量走本地）
 #   OPS_IP2 = 运营设备2（全部流量走专属出口，专机专用）
 #
-#   DRY_RUN=1 sh openclash-setup.sh    只显示 UCI 会改什么，不实际写入
-#   SKIP_UCI=1 sh openclash-setup.sh   跳过 UCI 同步，只装规则文件
+#   默认只装规则文件与嗅探/fake-ip 配置，【不碰】UCI 设置。
+#   SYNC_UCI=1 sh openclash-setup.sh              额外同步 UCI 配置（300+ 项）
+#   DRY_RUN=1 SYNC_UCI=1 sh openclash-setup.sh    只预览 UCI 会改什么，不写入
 #
 # 幂等: 可重复执行。安装前备份，安装后校验，失败自动回滚。
 
@@ -141,9 +142,10 @@ fi
 #     @config_subscribe[].custom_template_url  三地分别指向 cn/us/co.ini
 #     @config_subscribe[].name
 #
-# 设为 SKIP_UCI=1 可跳过本段，只装规则文件。
-if [ "${SKIP_UCI:-0}" = "1" ]; then
-  echo "  UCI 同步: 已按 SKIP_UCI=1 跳过"
+# ⚠️ 默认【关闭】。UCI 同步会改动 300+ 项配置，风险远高于装规则文件，
+#    需显式 SYNC_UCI=1 才执行。首次在新地点使用请先跑 DRY_RUN=1 看清改什么。
+if [ "${SYNC_UCI:-0}" != "1" ]; then
+  echo "  UCI 同步: 未启用（需 SYNC_UCI=1；建议先用 DRY_RUN=1 预览）"
 else
   U=/tmp/_ocs_uci.conf
   CODE=$(curl -s -o "$U" --max-time 40 -w "%{http_code}" "$REPO/local/openclash-uci.conf" 2>/dev/null)
@@ -155,7 +157,10 @@ else
 
     # ── @dns_servers: 先清空再重建，避免各地条目数不同导致错位 ──
     WANT_DNS=$(grep -c "@dns_servers" "$U")
-    if [ "$WANT_DNS" -gt 0 ]; then
+    if [ "${DRY_RUN:-0}" = "1" ]; then
+      HAVE_DNS=$(uci show openclash 2>/dev/null | grep -c "@dns_servers.*\.ip=")
+      echo "  [dry-run] @dns_servers: 现有 $HAVE_DNS 组 → 将按仓库重建"
+    elif [ "$WANT_DNS" -gt 0 ]; then
       while uci -q delete openclash.@dns_servers[-1] 2>/dev/null; do :; done
       IDX=-1
       grep "^openclash\.@dns_servers\[" "$U" | while IFS= read -r line; do
