@@ -193,9 +193,11 @@ else
         uci -q set "$K=$V" && echo "    $K: ${CUR:-<未设置>} → $V"
       fi
     done
+    # ⚠️ uci changes 是累计值，此处已包含上面 @dns_servers 重建产生的变更，
+    #    不要写成「config/subscribe 的变更数」—— 会让人误以为改了几百项 config。
     NSET=$(uci -q changes openclash | wc -l)
     [ "$NSET" -gt 0 ] && CHANGED=1
-    echo "  UCI config/subscribe: $NSET 项变更"
+    echo "  UCI 待提交变更合计: $NSET 项（含 @dns_servers 重建）"
 
     # ── 写入结果抽检: 值里混进引号说明剥离失败，立即回滚 ──
     if [ "${DRY_RUN:-0}" != "1" ] && [ "$NSET" -gt 0 ]; then
