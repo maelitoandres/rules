@@ -209,7 +209,8 @@ sed -i "s|^  override-destination: false|  override-destination: true|" $F
 |---|---|---|---|
 | 嗅探重定向 | `custom/openclash_custom_sniffer.yaml` | `override-destination: true` | 见 §3.6，**最关键** |
 | fake-ip 过滤 | `custom/openclash_custom_fake_filter.list` | 注释掉 `+.qq.com` | 微信域名规则才能匹配 |
-| 自定义规则 | ` custom/openclash_custom_rules.list` | 微信 AND 劫持规则 | 见 §4.2 |
+| 自定义规则 | `custom/openclash_custom_rules.list` | DNS 直连 + 运营设备 AND 规则 | 见 §4.1，**DNS 那段必配** |
+| 兜底规则 | `custom/openclash_custom_rules_2.list` | 全流量走运营出口的设备 | 插在 MATCH 之前 |
 | 自定义规则开关 | `uci openclash.config.enable_custom_clash_rules` | `1` | 默认 0，不开则上一项完全不生效 |
 | emoji 处理 | `uci openclash.@config_subscribe[0].emoji` | `false` | 配合 ini 里的 rename 保留国旗 |
 | API 密码 | `uci openclash.config.dashboard_password` | 强密码 | 默认 `123456` 且端口对局域网开放 |
@@ -307,6 +308,53 @@ rules 最顶部，优先级高于所有 ruleset。
 
 subconverter 会把它的语法解析坏（策略组名被插进括号里、后半段被截断）。
 单条 `SRC-IP-CIDR` 则可以正常透传。
+
+### ★ DNS 服务器必须钉死为直连
+
+开启 `respect-rules` 后，**mihomo 自身发往上游 DNS 的连接也会走规则分流**。
+这会带来两个问题：
+
+```
+119.29.29.29 (DNSPod)  属于 AS132203 腾讯
+WeChat.yaml 末尾有      IP-ASN,132203
+→ DNS 查询被「💬 微信」组接管
+→ 微信组一旦切到运营节点，每次 DNS 解析都绕境外一圈
+```
+
+更危险的是**循环依赖**：`proxy-server-nameserver` 也用 119.29.29.29，
+它负责解析代理服务器域名（如 `isp.decodo.com`）。若它走代理，就成了
+「要连代理得先解析、解析又要走代理」的死结。目前靠 223.5.5.5
+（阿里 AS37963，不在 132203）兜住才没出事——那是运气不是设计。
+
+解法是在 `openclash_custom_rules.list` **最顶部**钉死：
+
+```yaml
+rules:
+#—— 腾讯 DNSPod（AS132203，会被 WeChat 规则集的 IP-ASN 命中）——
+- IP-CIDR,119.29.29.29/32,DIRECT,no-resolve
+- IP-CIDR,119.29.29.99/32,DIRECT,no-resolve
+- IP-CIDR,1.12.12.12/32,DIRECT,no-resolve
+- IP-CIDR,1.12.12.21/32,DIRECT,no-resolve
+#—— 腾讯 DoH doh.pub（AS45090）——
+- IP-CIDR,120.53.53.53/32,DIRECT,no-resolve
+#—— 阿里 AliDNS（AS37963，预防性加固）——
+- IP-CIDR,223.5.5.5/32,DIRECT,no-resolve
+- IP-CIDR,223.6.6.6/32,DIRECT,no-resolve
+```
+
+验证方式——日志里应当是 `IPCIDR` 而不是 `RuleSet`：
+
+```bash
+grep "mihomo --> " /tmp/openclash.log | grep ":53"
+# ✅ 119.29.29.29:53 match IPCIDR(119.29.29.29/32) → DIRECT
+# ❌ 119.29.29.29:53 match RuleSet(WeChat) → 💬 微信[...]
+```
+
+> 顺带：**「追加上游DNS」（`append_wan_dns`）保持关闭**。它会把 WAN 分配的
+> DNS 加进 `nameserver`，而上游常含 `8.8.8.8` 这类国外 DNS。fake-ip 模式下
+> `nameserver` 只服务直连域名（国外域名直接返回 fake-ip 不查 DNS），
+> 结果是 Google DNS 只参与解析国内域名——拿到的 CDN 节点是次优的，
+> 且在 respect-rules 下它自己还要走一趟代理。收益为零，代价确凿。
 
 ### ★ 改节点名后必须同步这里
 
