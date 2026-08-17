@@ -161,7 +161,7 @@ else
       grep "^openclash\.@dns_servers\[" "$U" | while IFS= read -r line; do
         N=$(echo "$line" | sed -E "s/^openclash\.@dns_servers\[([0-9]+)\].*/\1/")
         K=$(echo "$line" | sed -E "s/^[^.]+\.[^.]+\.([^=]+)=.*/\1/")
-        V=$(echo "$line" | sed -E "s/^[^=]+=//; s/^'//; s/'$//")
+        V=$(echo "$line" | cut -d= -f2- | tr -d "\047")
         if [ "$N" != "$IDX" ]; then uci -q add openclash dns_servers >/dev/null; IDX=$N; fi
         uci -q set "openclash.@dns_servers[-1].$K=$V"
       done
@@ -170,13 +170,15 @@ else
     fi
 
     # ── config 与 @config_subscribe: 逐项比对，仅在不同时写入 ──
-    # ⚠️ 必须用 sed 剥离引号，不能用 ${V%\'} 这类参数展开 ——
-    #    在 ash/dash 里那个转义不生效，会把 '1' 写成 1'（带尾引号），
-    #    导致每一项都被判为"不同"而全量重写，配置整个损坏。
-    #    2026-08-17 实测踩到: en_mode 变成 fake-ip'、dns_port 变成 7874'。
+    # ⚠️ 剥离引号必须用 cut + tr，不要用 sed 的 s/'$// ——
+    #    那个 $ 锚点在多层引号嵌套下不可靠（独立脚本里能跑，放进本脚本就失效），
+    #    结果是尾引号残留: '1' 变成 1'。后果不是少改一项，而是【每一项都被
+    #    判为与当前值不同】而全量重写 —— 2026-08-17 实测 387 项配置全部损坏，
+    #    en_mode 变成 fake-ip'、dns_port 变成 7874'。
+    #    tr -d "\047" 直接删掉所有单引号，UCI 的值里不含单引号，安全。
     grep -E "^openclash\.(config|@config_subscribe)" "$U" | while IFS= read -r line; do
       K=$(echo "$line" | sed -E "s/=.*//")
-      V=$(echo "$line" | sed -E "s/^[^=]+=//; s/^'//; s/'$//")
+      V=$(echo "$line" | cut -d= -f2- | tr -d "\047")
       [ -n "$K" ] || continue
       CUR=$(uci -q get "$K" 2>/dev/null)
       [ "$CUR" = "$V" ] && continue
