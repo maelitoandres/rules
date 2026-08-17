@@ -1,120 +1,97 @@
 rules:
 # ══════════════════════════════════════════════════════════════
-
+# 运营设备专属出口 —— 一台设备一个 IP
+#   @@OPS_IP1@@ → 🇨🇴 运营01   社媒 app 走专属出口，其余流量走本地
+#   @@OPS_IP2@@ → 🇨🇴 运营02   全部流量走专属出口（专机专用，兜底规则见 _2.list）
 # ══════════════════════════════════════════════════════════════
-# 运营设备专属出口  @@OPS_IP1@@ → 运营01（Decodo 23.27.43.108）
-# ══════════════════════════════════════════════════════════════
-# 规则直接指向【节点】而非策略组——运营设备的出口因此固定不变，
-# 不受面板上切换 app 策略组的影响，也不会在每次重新生成配置后
-# 被重置（策略组的选择会被重置，写死在规则里的节点不会）。
 #
-# 同网段其他设备的抖音/小红书/微博/CO补充策略组默认 DIRECT，
-# 只有 @@OPS_IP1@@ 这一台从哥伦比亚出去。
+# ★ 组织方式：按 app 分组，同一 app 下集中所有设备的规则。
+#   这样加新 app 时只需在一处新增一个区块，检查某个 app 的覆盖是否完整
+#   也能一眼看全。加新设备时虽要在各区块内追加，但那是低频操作。
 #
-# 覆盖每个运营 app 时都要带上自建补充规则集，否则补充规则里的
-# 域名(如 sinaimg 关键字、CDN IP 段)不会跟着走专属出口，同一个
-# app 的流量会分走两个 IP —— 对运营账号而言这比 IP 不对更危险。
+# ★ 规则直接指向【节点名】而非策略组：
+#   出口因此固定不变，不受面板切换影响，也不会在重新生成配置时被重置
+#   （策略组的选择会被重置，写死在规则里的节点名不会）。
+#   运营链路必须避开一切会被重置的东西。
 #
-# ⚠️ 依赖【设备端设置的静态 IP】，不是 DHCP 保留。若这台设备离线、
-#    换机或改了地址，@@OPS_IP1@@ 可能被 DHCP 分配给别的设备，那台
-#    设备的社媒流量就会误走运营出口，污染这个 IP 的行为画像。
-#    建议在 DHCP 里对该 MAC 做静态绑定，并把地址排除出动态池。
+# ★ 每个 app 都要带上自建补充规则集：
+#   只写 RULE-SET,Weibo 是不够的，CO_weibo_rule 里的关键字和 CDN IP 段
+#   不会跟着走专属出口，同一 app 的流量会分走两个 IP —— 对运营账号而言
+#   这比 IP 不对更容易触发风控。
 #
-# ⚠️ 这些规则插在配置的 rules 最顶部，优先级高于所有 ruleset。
+# ⚠️ 依赖【设备端设置的静态 IP】，不是 DHCP 保留。若设备离线、换机或改了
+#    地址，该 IP 可能被 DHCP 分配给别的设备，那台设备的社媒流量就会误走
+#    运营出口，污染这个 IP 的行为画像。
+#    建议在 DHCP 里对 MAC 做静态绑定，并把地址排除出动态池。
+#
+# ⚠️ 本文件的规则插在配置 rules 的【最顶部】，优先级高于所有 ruleset。
+#
+# ⚠️ 改节点名后必须同步这里 —— 目标名是写死的字符串，节点改名后规则会被
+#    静默丢弃（日志打 Skiped The Custom Rule），运营流量退回策略组也就是
+#    DIRECT，直接暴露真实 IP。改完务必检查:
+#      grep -c "Skiped The Custom Rule" /tmp/openclash.log    # 应为 0
 
 #—— 抖音 ——
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,DouYin)),ð¨ð´ 运营01
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,CO_douyin_rule)),ð¨ð´ 运营01
-
-#—— 微博 ——
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,Weibo)),ð¨ð´ 运营01
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,CO_weibo_rule)),ð¨ð´ 运营01
+# CO_douyin_rule 含字节系域名、关键字兜底、以及 PCDN 域名
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,DouYin)),🇨🇴 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,CO_douyin_rule)),🇨🇴 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,DouYin)),🇨🇴 运营02
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,CO_douyin_rule)),🇨🇴 运营02
 
 #—— 小红书 ——
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,XiaoHongShu)),ð¨ð´ 运营01
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,CO_xhs_rule)),ð¨ð´ 运营01
+# CO_xhs_rule 含 IP-ASN,139341(ACE CDN) 与阿里云海外三段
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,XiaoHongShu)),🇨🇴 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,CO_xhs_rule)),🇨🇴 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,XiaoHongShu)),🇨🇴 运营02
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,CO_xhs_rule)),🇨🇴 运营02
+
+#—— 微博 ——
+# CO_weibo_rule 含 sinaimg 等关键字与 EdgeNext/Zenlayer CDN 段
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,Weibo)),🇨🇴 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,CO_weibo_rule)),🇨🇴 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,Weibo)),🇨🇴 运营02
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,CO_weibo_rule)),🇨🇴 运营02
 
 #—— TikTok ——
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,TikTok)),ð¨ð´ 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,TikTok)),🇨🇴 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,TikTok)),🇨🇴 运营02
 
-#—— CO补充（兜底，新发现的漏网域名先落这里）——
-# 必须覆盖，否则新加进 CO_social_rule 的域名在运营设备上不走专属出口，
-# 而是跟随「ð¨ð´ CO补充」组(默认 DIRECT)——等于漏网域名直接暴露真实 IP。
-# 当前收录: 数美风控 fengkongcloud(设备指纹上报，必须与业务流量同源)。
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,CO_social_rule)),ð¨ð´ 运营01
-
-#—— 微信视频号 ——
-# 只覆盖 CO_wechat_rule(视频号 finder 系列)时并不够: 视频号的评论/点赞/发布
-# 全部走微信主体的 mmtls 长连接(szextshort/szlong/szshort)，视频号自己的域名
-# 只负责拉视频画面。所以下面还要覆盖 WeChat 规则集。
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,CO_wechat_rule)),ð¨ð´ 运营01
-
-#—— 微信主体长连接 ——
-# ⚠️ 副作用: 这台设备的微信【全部功能】都走 CO —— 聊天延迟增加约 400ms，
+#—— 微信（含视频号）——
+# 必须同时覆盖 WeChat 与 CO_wechat_rule: 视频号的评论/点赞/发布走微信主体的
+# mmtls 长连接(szextshort/szlong/szshort)，视频号自己的域名只负责拉视频画面。
+# 只覆盖 CO_wechat_rule 的结果是「视频从境外拉，评论仍从真实 IP 提交」。
+#
+# ⚠️ 副作用: 这两台设备的微信【全部功能】都走境外 —— 聊天延迟增加约 400ms，
 #    微信支付走境外 IP 可能触发风控。仅适用于专用运营小号的设备。
-#    若 @@OPS_IP1@@ 也用于日常微信，删掉这一条，只保留上面的视频号规则。
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,WeChat)),ð¨ð´ 运营01
+#    若某台设备也用于日常微信，删掉它的 WeChat 那条，只保留 CO_wechat_rule。
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,WeChat)),🇨🇴 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,CO_wechat_rule)),🇨🇴 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,WeChat)),🇨🇴 运营02
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,CO_wechat_rule)),🇨🇴 运营02
 
-# ══════════════════════════════════════════════════════════════
-# 运营设备 2   @@OPS_IP2@@ → ð¨ð´ 运营02（Decodo 23.27.41.10）
-# ══════════════════════════════════════════════════════════════
-# 与设备 1 的区别: 这台机器【全部流量】都走运营出口，包括未匹配任何
-# 规则的部分（兜底规则在 openclash_custom_rules_2.list，插在 MATCH 之前）。
-# 下面这些 app 规则仍然必要 —— 它们优先级更高，能让社媒流量在命中
-# ChinaDomain/GEOIP,CN 之前就被截走，否则国内 app 会走直连。
-
-#—— 抖音 ——
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,DouYin)),ð¨ð´ 运营02
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,CO_douyin_rule)),ð¨ð´ 运营02
-
-#—— 小红书 ——
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,XiaoHongShu)),ð¨ð´ 运营02
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,CO_xhs_rule)),ð¨ð´ 运营02
-
-#—— 微博 ——
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,Weibo)),ð¨ð´ 运营02
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,CO_weibo_rule)),ð¨ð´ 运营02
-
-#—— 微信 + 微信运营（视频号）——
-# 视频号的评论/点赞/发布走微信主体的 mmtls 长连接，所以两个规则集都要覆盖。
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,WeChat)),ð¨ð´ 运营02
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,CO_wechat_rule)),ð¨ð´ 运营02
-
-#—— TikTok ——
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,TikTok)),ð¨ð´ 运营02
-
-#—— CO补充（跨 app 通用域名，当前收录数美风控）——
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,CO_social_rule)),ð¨ð´ 运营02
-
-# ══════════════════════════════════════════════════════════════
-# Meta 系（Instagram 运营）—— 两台运营设备各自绑定专属出口
-# ══════════════════════════════════════════════════════════════
-# ★ 为什么绑【整个 Meta 系】而不只是 Instagram:
-#   Instagram 的图片视频走 fbcdn.net（收在 Meta_rule 里），API 走
-#   instagram.com。只绑 Instagram 规则集的话，API 从哥伦比亚出去、
-#   媒体却从美国出去 —— 同一个 app 的流量分走两个 IP，这比 IP 不对
-#   更容易触发风控（2026-08-16 微博就是这么暴露的）。
-#   Facebook.yaml 也要覆盖: 它含 DOMAIN-SUFFIX,facebook.com，而
-#   graph.facebook.com 是 FB/IG 共用的 Graph API 端点。
+#—— Meta 系（Instagram / Threads / Facebook）——
+# 必须整组覆盖而不能只绑 Instagram: IG 的图片视频走 fbcdn.net（收在 Meta_rule
+# 里），API 走 instagram.com。只绑 Instagram 的话 API 从境外出去、媒体却从
+# 美国出去，同一 app 分走两个 IP。Facebook.yaml 也要覆盖 —— 它含
+# DOMAIN-SUFFIX,facebook.com，而 graph.facebook.com 是 FB/IG 共用的 API 端点。
 #
-# ⚠️ 副作用: 这两台设备的 Facebook / Threads 也会走运营出口。
-#    对专用运营设备而言这是想要的（全部流量同源，不留混合痕迹）。
-#
-# ⚠️ Meta 对数据中心 IP 的识别远比国内平台严格，Decodo 是 hosting:true
-#    的 ISP 代理。首次切换请先用小号验证，不要直接切主力账号 ——
-#    可能触发验证码、短信验证甚至限制登录。
+# ⚠️ Meta 对数据中心 IP 的识别远比国内平台严格，Decodo 是 hosting:true 的
+#    ISP 代理。首次切换请先用小号验证，可能触发验证码或账号验证。
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,Instagram)),🇨🇴 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,Threads)),🇨🇴 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,Meta_rule)),🇨🇴 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,Facebook)),🇨🇴 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,Instagram)),🇨🇴 运营02
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,Threads)),🇨🇴 运营02
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,Meta_rule)),🇨🇴 运营02
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,Facebook)),🇨🇴 运营02
 
-#—— 运营设备 1: @@OPS_IP1@@ → ð¨ð´ 运营01 ——
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,Instagram)),ð¨ð´ 运营01
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,Threads)),ð¨ð´ 运营01
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,Meta_rule)),ð¨ð´ 运营01
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,Facebook)),ð¨ð´ 运营01
+#—— CO补充（跨 app 通用域名的兜底）——
+# 必须覆盖，否则新加进 CO_social_rule 的域名在运营设备上不走专属出口，
+# 而是跟随「🇨🇴 CO补充」组(默认 DIRECT) —— 等于漏网域名直接暴露真实 IP。
+# 当前收录: 数美风控 fengkongcloud（设备指纹上报，必须与业务流量同源）。
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,CO_social_rule)),🇨🇴 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,CO_social_rule)),🇨🇴 运营02
 
-#—— 运营设备 2: @@OPS_IP2@@ → ð¨ð´ 运营02 ——
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,Instagram)),ð¨ð´ 运营02
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,Threads)),ð¨ð´ 运营02
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,Meta_rule)),ð¨ð´ 运营02
-- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,Facebook)),ð¨ð´ 运营02
-
-# 注: WhatsApp 刻意【不】绑定运营出口。它账号绑手机号，登录 IP 跳变
-#     会触发封号；且与 Instagram 运营无关，保持走 ðºð¸ CN2GIA快线 更稳。
+# 注: WhatsApp 刻意【不】绑定运营出口。它账号绑手机号，登录 IP 跳变会触发
+#     封号；且与社媒运营无关，保持走「🇺🇸 CN2GIA快线」更稳。
