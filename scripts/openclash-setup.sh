@@ -126,23 +126,80 @@ else
 fi
 
 # ══════════════════════════════════════════════════════════════
-# UCI 开关
+# UCI 配置同步（插件设置 / 覆写设置）
 # ══════════════════════════════════════════════════════════════
-# enable_custom_clash_rules 默认为 0，不开的话上面装的自定义规则【完全不会被读取】
+# 从仓库拉取 local/openclash-uci.conf 并应用 —— 该文件由任一地点跑
+# openclash-export.sh 生成。这样在地点 A 用 LuCI 调好的设置，
+# 其他地点跑本脚本即可同步，不必逐项对照文档手敲。
+#
+# ⚠️ 以下项【不会】被同步（导出时已排除，各地本地维护）:
+#     dashboard_password                       API 密码
+#     @config_subscribe[].address              订阅地址，含凭证
+#     @config_subscribe[].custom_template_url  三地分别指向 cn/us/co.ini
+#     @config_subscribe[].name
+#
+# 设为 SKIP_UCI=1 可跳过本段，只装规则文件。
+if [ "${SKIP_UCI:-0}" = "1" ]; then
+  echo "  UCI 同步: 已按 SKIP_UCI=1 跳过"
+else
+  U=/tmp/_ocs_uci.conf
+  CODE=$(curl -s -o "$U" --max-time 40 -w "%{http_code}" "$REPO/local/openclash-uci.conf" 2>/dev/null)
+  if [ "$CODE" != "200" ] || [ ! -s "$U" ]; then
+    echo "  ⚠️ UCI 配置拉取失败 (HTTP $CODE)，跳过同步（规则文件已装好）"
+  else
+    uci export openclash > "$BK/openclash-uci-before.conf" 2>/dev/null
+    CHANGED=0
+
+    # ── @dns_servers: 先清空再重建，避免各地条目数不同导致错位 ──
+    WANT_DNS=$(grep -c "@dns_servers" "$U")
+    if [ "$WANT_DNS" -gt 0 ]; then
+      while uci -q delete openclash.@dns_servers[-1] 2>/dev/null; do :; done
+      IDX=-1
+      grep "^openclash\.@dns_servers\[" "$U" | while IFS= read -r line; do
+        N=$(echo "$line" | sed -E "s/^openclash\.@dns_servers\[([0-9]+)\].*/\1/")
+        K=$(echo "$line" | sed -E "s/^[^.]+\.[^.]+\.([^=]+)=.*/\1/")
+        V=$(echo "$line" | sed -E "s/^[^=]+=//; s/^'//; s/'$//")
+        if [ "$N" != "$IDX" ]; then uci -q add openclash dns_servers >/dev/null; IDX=$N; fi
+        uci -q set "openclash.@dns_servers[-1].$K=$V"
+      done
+      echo "  UCI @dns_servers: 已重建（$(grep -c '@dns_servers' "$U") 项）"
+      CHANGED=1
+    fi
+
+    # ── config 与 @config_subscribe: 逐项比对，仅在不同时写入 ──
+    NSET=0
+    grep -E "^openclash\.(config|@config_subscribe)" "$U" | while IFS= read -r line; do
+      K="${line%%=*}"; V="${line#*=}"; V="${V%\'}"; V="${V#\'}"
+      case "$K" in *"="*|"") continue ;; esac
+      CUR=$(uci -q get "$K" 2>/dev/null)
+      [ "$CUR" = "$V" ] && continue
+      uci -q set "$K=$V" && echo "    $K: ${CUR:-<未设置>} → $V"
+    done
+    NSET=$(uci -q changes openclash | wc -l)
+    [ "$NSET" -gt 0 ] && CHANGED=1
+    echo "  UCI config/subscribe: $NSET 项变更"
+
+    if [ "$CHANGED" = "1" ]; then
+      uci commit openclash && echo "  UCI 已提交（改动前配置备份于 $BK/openclash-uci-before.conf）"
+    else
+      echo "  UCI 已与仓库一致，无需变更"
+    fi
+    rm -f "$U"
+  fi
+fi
+
+# ── 兜底: 这两项无论 UCI 同步是否执行都必须为真 ──
+# enable_custom_clash_rules 默认为 0，不开的话上面装的自定义规则完全不会被读取
 # emoji=false 配合 ini 里的 rename 保留国旗（subconverter 的 emoji 语义是
 #             「先剥掉原有的」，true 会按名字猜国家重加，出现双国旗）
 set_uci() {
   CUR=$(uci -q get "$1")
   if [ "$CUR" != "$2" ]; then
-    uci set "$1=$2"; echo "  UCI $1: ${CUR:-未设置} → $2"; UCI_DIRTY=1
-  else
-    echo "  UCI $1 已是 $2，跳过"
+    uci set "$1=$2"; echo "  UCI $1: ${CUR:-未设置} → $2"; uci commit openclash
   fi
 }
-UCI_DIRTY=0
 set_uci openclash.config.enable_custom_clash_rules 1
 set_uci openclash.@config_subscribe[0].emoji false
-[ "$UCI_DIRTY" = "1" ] && uci commit openclash && echo "  UCI 已提交"
 
 # API 密码不自动设置 —— 需要人工选择强密码
 PW=$(uci -q get openclash.config.dashboard_password)
