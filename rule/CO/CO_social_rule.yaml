@@ -37,3 +37,7 @@ payload:
 #     的 AND 规则覆盖 —— 只对 10.1.2.33 / 10.1.2.34 生效，同网段其他设备照常
 #     直连，不会因为一个通用 SDK 把无关流量拽进运营出口。
   - DOMAIN-KEYWORD,fengkongcloud #数美风控 兜住 .localdomain 变形
+
+# ⚠️ 临时探针（验证 classical provider 是否接受 AND 逻辑规则），验证后删除
+# 用不存在的 IP 与域名，不会匹配任何真实流量
+  - AND,((SRC-IP-CIDR,10.9.9.99/32),(DOMAIN-SUFFIX,and-rule-probe.invalid))
