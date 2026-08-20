@@ -96,26 +96,29 @@ rules:
 # 注: WhatsApp 刻意【不】绑定运营出口。它账号绑手机号，登录 IP 跳变会触发
 #     封号；且与社媒运营无关，保持走「🇺🇸 CN2GIA快线」更稳。
 
-#—— 整机 fail-closed 兜底（顶部，抢在所有 DIRECT 类 ruleset 之前）——
-# ⚠️ 位置铁律：必须放【顶部文件】(本文件)，不能放 _2.list 底部。
-#    裸 IP 直连（抖音 TTNet/HTTPDNS、任何国内 IP 直连）匹配不到域名规则，会命中
-#    rules 中部的 RULE-SET,ChinaMedia/ChinaDomain/ChinaCompanyIp/ChinaIp → DIRECT，
-#    暴露真实 IP。这些 DIRECT 类规则排在中部，_2.list 底部兜底(ChinaIp 之后)够不着。
-#    只有放顶部、抢在所有 DIRECT 规则之前，才能实现真正的 fail-closed。
-#    2026-08-20 实测内核规则顺序: 抖音AND[0] ... ChinaMedia[84] ChinaDomain[85]
-#    ChinaCompanyIp[86] ChinaIp[87] ... .34底部兜底[92] MATCH[93]。
+#—— .33 国内裸IP兜底 + .34 整机兜底（方案②，2026-08-20 改）——
+# 【背景】抖音 TTNet 用 HTTPDNS 拿真实 IP 后【无域名】裸连，域名规则(RULE-SET,DouYin)
+#   够不着它，会命中 rules 中部的 RULE-SET,ChinaIp → DIRECT 泄漏真实 IP。要堵它、
+#   又不想把 .33 整机流量都推去境外(否则 Google/淘宝 等日常也走境外)，就在顶部、
+#   抢在中部 ChinaIp 之前，只把 .33【命中国内 IP 集且无域名】的连接导向运营出口。
 #
-# 语义：这两台运营专机的【全部出公网流量】导向运营出口（写死节点名）。
-#   运营节点健康 → 正常走代理；节点拨号失败 → 连接失败(context deadline exceeded)，
-#   表现为 App 卡顿/加载失败，【绝不回落 DIRECT】—— 这正是"像正常网络不通"的状态，
-#   而不是偷偷降级到裸 IP 泄漏真实属地。
-#   内网/LAN 流量在防火墙层 localnetwork 绕过、不进内核，不受本规则影响。
+# 【关键语法】no-resolve 必须放【子规则括号内】(RULE-SET,ChinaIp,no-resolve)，
+#   放整条末尾会被 mihomo 当成代理名报 "proxy [no-resolve] not found" 而整条失效。
+#   2026-08-20 用 clash -t 实测确认。作用：国内【域名】流量(淘宝 taobao.com 等)不
+#   触发解析、不被这两条匹配，仍走本地/策略组；只有【无域名的裸 IP 直连】(抖音 TTNet
+#   那种)才命中 ChinaIp/ChinaCompanyIp 被导向运营出口。境外流量(Google/YT)走各自
+#   策略组、不受影响。
 #
-# ⚠️ 代价：这两台设备的微信/苹果/微软/淘宝等【日常流量】也全部走境外运营出口。
-#    仅适用于【专用运营专机】。微信支付/登录走境外 IP 可能触发风控。
-#    若某台要兼日常，删掉它这条，改用 AND,((SRC-IP),(RULE-SET,ChinaIp)),运营 的精细方案。
+# 【只兜 ChinaIp/ChinaCompanyIp，不兜 ChinaMedia】后者主要是媒体【域名】集，抖音
+#   媒体域名已被 CO_douyin_rule 覆盖；兜 ChinaMedia 会把 B站/爱奇艺等国内媒体域名
+#   也推去境外(变慢)，得不偿失。抖音裸 IP 实测落 ChinaIp。
 #
-# ⚠️ 依赖写死节点名，节点改名后本规则被静默丢弃(日志 Skiped)，流量退回策略组=DIRECT
-#    暴露真实 IP。改名后必须同步，并核验 grep -c "Skiped" /tmp/openclash.log 应为 0。
-- SRC-IP-CIDR,@@OPS_IP1@@/32,🇨🇴 运营01
+# ⚠️ 代价：.33 命中国内 IP 段的【裸 IP】连接(含淘宝等国内 App 的裸 IP)也走运营出口
+#    —— 国内裸 IP 无法按 App 区分，这是"堵抖音裸 IP"不可避免的连带。域名流量不受影响。
+# ⚠️ 依赖写死节点名，改名后规则静默丢弃(日志 Skiped)退回 DIRECT，改名后必须同步。
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,ChinaCompanyIp,no-resolve)),🇨🇴 运营01
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,ChinaIp,no-resolve)),🇨🇴 运营01
+
+# .34 保持整机兜底（纯运营专机：一切出公网流量走运营02。与 .33 的差异是有意的——
+#   .33 兼日常保留精细分流，.34 专机全量同源。fail-closed：节点挂→连接失败卡顿）。
 - SRC-IP-CIDR,@@OPS_IP2@@/32,🇨🇴 运营02
