@@ -45,6 +45,7 @@ payload:
 #   no-resolve: 只对已知 IP 的连接匹配，不触发域名解析。
   - IP-CIDR,154.92.24.0/24,no-resolve #EdgeNext 香港
   - IP-CIDR,151.242.229.0/24,no-resolve #EdgeNext 洛杉矶
+  - IP-CIDR,156.225.108.0/24,no-resolve #EdgeNext 新加坡 2026-08-20实测(无SNI证书*.edgenext.com)
   - IP-CIDR,98.96.229.0/24,no-resolve #Zenlayer 迈阿密
   - IP-CIDR,199.245.60.0/24,no-resolve #Zenlayer 迈阿密
   - IP-CIDR,128.14.118.0/24,no-resolve #Zenlayer 圣保罗

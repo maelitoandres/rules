@@ -110,3 +110,21 @@ payload:
   - DOMAIN-SUFFIX,qtaeixd.com
   - DOMAIN-SUFFIX,cjjd14.com
   - DOMAIN-SUFFIX,0kkkkkt.com
+
+#—— 字节借道第三方 CDN 的专属子域 ——
+# 2026-08-20 实测: 刷抖音时 zttcover.tt.x.bsgslb.cn（白山云 CDN 的头条/抖音
+#   专属子域树）命中 RULE-SET,ChinaMedia 走了 DIRECT。按 tt.x.bsgslb.cn
+#   子域树收录，不影响 bsgslb.cn 的其他客户。
+  - DOMAIN-SUFFIX,tt.x.bsgslb.cn
+
+# ★ TTNet 裸 IP 直连兜底 —— 对头部「域名关键字是唯一可靠覆盖」的唯一例外
+#   2026-08-20 实测: 抖音会话中（恰逢 🇨🇴 运营01 拨号超时高发时段）TTNet
+#   备用通道以私有协议直连 111.13.225.146:8081 —— 非 TLS、无 SNI，
+#   sniffer(parse-pure-ip) 也嗅探不出域名，命中 RULE-SET,ChinaIp 走 DIRECT。
+#   评论/上报恰好走该通道时，属地即显示真实位置（偶发属地泄漏的直接通道）。
+#   模式与 CO_weibo_rule 的新浪 36.51.224.0/24:8081 完全同型。
+#   归属: 111.13.0.0/16 AS9808 中国移动（字节租用移动 IDC 形态，域名规则
+#   永远够不着，只能按实测段精确覆盖）。
+#   ⚠️ 只按实测 /24 收录，禁止扩到 /16 或 IP-ASN,9808（会把移动系服务拽进 CO）。
+#      若发现误伤（运营设备的移动系 App 流量走了 CO），删本段并在此记录。
+  - IP-CIDR,111.13.225.0/24,no-resolve #移动IDC 字节TTNet私有协议:8081 2026-08-20实测
