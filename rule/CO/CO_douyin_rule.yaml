@@ -23,6 +23,7 @@ payload:
   - DOMAIN-SUFFIX,zztfly.com
   - DOMAIN-SUFFIX,amemv.com
   - DOMAIN-SUFFIX,snssdk.com
+  - DOMAIN-SUFFIX,baike.com #抖音百科 m.baike.com→bytedns1.com(字节自有DNS)→华为云CDN 2026-08-20实测
   - DOMAIN-SUFFIX,bdxiguaimg.com
   - DOMAIN-SUFFIX,bdxiguastatic.com
   - DOMAIN-SUFFIX,feelgood.cn

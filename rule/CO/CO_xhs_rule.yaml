@@ -14,6 +14,7 @@ payload:
 #   客户端 DNS 解析失败时附加搜索域重试，后缀一变 DOMAIN-SUFFIX 就失配。
   - DOMAIN-KEYWORD,xhscdn #小红书 CDN
   - DOMAIN-KEYWORD,xiaohongshu
+  - DOMAIN-SUFFIX,askdiandian.com #小红书「点点」AI搜索App(阿里云) 2026-08-20实测
 
 # ★ ACE (AS139341) —— 小红书的海外 CDN
 #   实测抓到 5 个分散的段: 43.159.79 / 43.159.95 / 43.175.104 / 43.175.224 / 43.175.225
