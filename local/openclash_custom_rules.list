@@ -33,6 +33,27 @@ rules:
 
 #—— 抖音 ——
 # CO_douyin_rule 含字节系域名、关键字兜底、以及 PCDN 域名
+# ★ 视频/图片 CDN 走日本(提速, 不影响属地) —— 2026-08-21 实测
+#   抖音视频 CDN 在国内, 但走运营01=哥伦比亚出口访问慢: 实测下载国内文件
+#   哥伦比亚出口 2300-3700ms vs 日本出口 500ms(慢 4-7 倍)。运营01 到全球
+#   cloudflare 却有 9.5MB/s —— 瓶颈是哥伦比亚出口 IP→国内这段, 换中转无效
+#   (实测「日本桥哥伦比亚」3700ms 反而最慢)。这些是纯单向内容拉取域名,
+#   不影响属地(属地看 API/评论/发布连接的哥伦比亚出口 IP, 视频 CDN 拉取 IP
+#   不计入账号画像), 分离走日本节点提速。
+#   ⚠️ 必须排在下面 RULE-SET,DouYin/CO_douyin_rule 之前, 否则先被截走运营01。
+#   ⚠️ 只放【纯单向内容 CDN】; API(amemv)、信令、PCDN(bytegecko, P2P) 不要加 ——
+#      它们要么决定属地要么是 P2P, 必须保持走运营01。
+#   ⚠️ 走写死节点名, 日本节点改名后本规则静默丢弃(Skiped)退回后续规则→运营01。
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(DOMAIN-SUFFIX,douyinvod.com)),🇯🇵 日本
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(DOMAIN-SUFFIX,zjcdn.com)),🇯🇵 日本
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(DOMAIN-SUFFIX,douyinpic.com)),🇯🇵 日本
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(DOMAIN-SUFFIX,byteimg.com)),🇯🇵 日本
+- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(DOMAIN-SUFFIX,huoshanimg.com)),🇯🇵 日本
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(DOMAIN-SUFFIX,douyinvod.com)),🇯🇵 日本
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(DOMAIN-SUFFIX,zjcdn.com)),🇯🇵 日本
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(DOMAIN-SUFFIX,douyinpic.com)),🇯🇵 日本
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(DOMAIN-SUFFIX,byteimg.com)),🇯🇵 日本
+- AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(DOMAIN-SUFFIX,huoshanimg.com)),🇯🇵 日本
 - AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,DouYin)),🇨🇴 运营01
 - AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,CO_douyin_rule)),🇨🇴 运营01
 - AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,DouYin)),🇨🇴 运营02
