@@ -85,8 +85,8 @@ rules:
 # ⚠️ 副作用: 这两台设备的微信【全部功能】都走境外 —— 聊天延迟增加约 400ms，
 #    微信支付走境外 IP 可能触发风控。仅适用于专用运营小号的设备。
 #    若某台设备也用于日常微信，删掉它的 WeChat 那条，只保留 CO_wechat_rule。
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,WeChat)),🇨🇴 运营01
-- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,CO_wechat_rule)),🇨🇴 运营01
+#- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,WeChat)),🇨🇴 运营01  # 2026-08-21 注释: .33 微信走本地日常(视频号运营时取消注释)
+#- AND,((SRC-IP-CIDR,@@OPS_IP1@@/32),(RULE-SET,CO_wechat_rule)),🇨🇴 运营01  # 2026-08-21 注释: .33 微信走本地日常(视频号运营时取消注释)
 - AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,WeChat)),🇨🇴 运营02
 - AND,((SRC-IP-CIDR,@@OPS_IP2@@/32),(RULE-SET,CO_wechat_rule)),🇨🇴 运营02
 
