@@ -1,0 +1,39 @@
+# NAME: CO_cdn_rule
+# 策略组: 📦 CDN
+#
+# 说明: 运营设备(.33/.34)的抖音/小红书【纯内容 CDN】分流走日本加速。
+#
+# ★ 为什么单独抽出 CDN 走日本(而非跟 app 主体走运营出口):
+#   哥伦比亚 Decodo 住宅代理高并发建连能力有限(实测短超时+并发30 下运营01
+#   93-100% 超时、CN2GIA 0% 超时)。抖音/小红书刷内容时瞬间开几十个 CDN 连接,
+#   把 Decodo 挤爆 → 视频/图片/搜索加载失败。把这些【纯内容拉取】的 CDN 分流走
+#   日本,Decodo 只剩少量 API 并发,就扛得住了。
+#
+# ★ 为什么不影响属地:
+#   属地由业务 API(amemv / xiaohongshu.com 的 edith 等)根据【发布/评论时的出口
+#   IP】判定。这里全是【内容 CDN】(拉图片/视频/直播画面),是"消费/浏览"、不产生
+#   你的内容,不改变账号属地。API/发布/评论仍走运营出口(哥伦比亚),属地不变。
+#   ⚠️ 深层网络画像层面 CDN 从日本数据中心 IP 拉是个次要信号,但风控对"拉内容 IP"
+#      的敏感度远低于"发布 IP",核心(发布行为)完全在哥伦比亚。
+#
+# ⚠️ 只放【纯单向内容 CDN 域名】。API、信令、埋点、发布相关域名【禁止】放进来
+#    (amemv 非 CDN 子域、xiaohongshu.com 的 edith/as/spider-tracker/apm 等),
+#    它们决定属地/归属,必须留运营出口。
+# ⚠️ webcast(抖音直播互动)、bytegecko(PCDN/P2P)【不放】——前者含互动影响属地,
+#    后者是 P2P 不宜走日本。
+
+payload:
+
+# ── 抖音 CDN(纯内容: 点播视频/图片/静态) ──
+  - DOMAIN-SUFFIX,douyinvod.com    # 点播视频
+  - DOMAIN-SUFFIX,zjcdn.com        # 字节 CDN(视频)
+  - DOMAIN-SUFFIX,douyinpic.com    # 图片
+  - DOMAIN-SUFFIX,byteimg.com      # 图片
+  - DOMAIN-SUFFIX,huoshanimg.com   # 火山图片
+
+# ── 小红书 CDN(纯内容: 图片/视频/头像/直播画面) ──
+#   证书 O=行吟信息科技(小红书)、CN=*.xhscdn.com; sns-img/sns-video/sns-avatar/
+#   live-play 全在 *.xhscdn.com 下,一条 DOMAIN-SUFFIX 全覆盖。
+#   小红书 API/发布/埋点在 xiaohongshu.com(edith/as/spider-tracker),不在此文件,
+#   仍走运营出口保属地。
+  - DOMAIN-SUFFIX,xhscdn.com
