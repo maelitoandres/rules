@@ -345,7 +345,7 @@ iptables -D OUTPUT -p tcp --dport 22228 -j DROP
 **国内平台的 IP 地理库与国际库判定分歧**。各平台各自维护独立的属地判断机制，
 没有统一标准——抖音用字节自有库，微博、小红书、B 站各有各的来源。
 
-实测 `185.177.78.55`：
+实测 `<BD-OLD-01>`：
 
 | 数据源 | 判定 |
 |---|---|
@@ -365,9 +365,9 @@ iptables -D OUTPUT -p tcp --dport 22228 -j DROP
 
 | IP | RIR | ASN / ISP | 国内库判定 |
 |---|---|---|---|
-| `185.177.78.55` (BD) | RIPE | ALAXONA（转售商） | 全部判美国 |
-| `23.27.43.108` (Decodo) | **ARIN** | **AS14080 Telmex Colombia** | 微博/B站/抖音/微信 ✅　小红书 ❌ |
-| `136.0.47.9` (Decodo) | **ARIN** | **AS14080 Telmex Colombia** | 同上 |
+| `<BD-OLD-01>` (BD) | RIPE | ALAXONA（转售商） | 全部判美国 |
+| `<CO-EXIT-01>` (Decodo) | **ARIN** | **AS14080 Telmex Colombia** | 微博/B站/抖音/微信 ✅　小红书 ❌ |
+| `<CO-EXIT-03>` (Decodo) | **ARIN** | **AS14080 Telmex Colombia** | 同上 |
 | `190.85.0.1`（对照） | **LACNIC** | AS14080 Telmex Colombia | — |
 
 Decodo 那批的 ASN 和 ISP **就是哥伦比亚本地运营商 Telmex**，实际也在波哥大，
@@ -384,7 +384,7 @@ Decodo 那批的 ASN 和 ISP **就是哥伦比亚本地运营商 Telmex**，实�
 验证一个段属于哪个 RIR：
 
 ```bash
-whois 23.27.43.108 | grep -iE "^(source|organisation|NetRange):"
+whois <CO-EXIT-01> | grep -iE "^(source|organisation|NetRange):"
 # organisation: ARIN          ← 北美，粗粒度库会判成美国
 # whois:        whois.arin.net
 
@@ -405,7 +405,7 @@ whois 190.85.0.1 | grep -iE "^(source|organisation|inetnum):"
 curl --proxy "socks5h://<代理凭证>@<入口>" \
      "https://api.bilibili.com/x/web-interface/zone"
 
-# 返回: {"addr":"185.177.78.55","country":"美国","province":"佛罗里达州","city":"迈阿密",...}
+# 返回: {"addr":"<BD-OLD-01>","country":"美国","province":"佛罗里达州","city":"迈阿密",...}
 ```
 
 **换 IP 前先用这条验证，返回目标国家才值得买**。几秒就能判断一个段能不能用，
@@ -717,7 +717,7 @@ curl -s -H "Authorization: Bearer $SECRET" \
 
 ```
 dial 🎶 抖音 ... --> edith.xiaohongshu.com:443
-  error: 198.35.45.233:443 connect error: context deadline exceeded
+  error: <JMS-CN2GIA-IP>:443 connect error: context deadline exceeded
           ^^^^^^^^^^^^^^ 这是桥接节点(CN2GIA)的地址，不是出口节点
 ```
 

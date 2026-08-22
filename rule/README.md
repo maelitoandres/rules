@@ -69,9 +69,9 @@ ruleset=🎶 抖音,clash-classic:.../CO/CO_douyin_rule.yaml         # 自建补
 
 | 节点 | 实体 | 桥接（`dialer-proxy`） | 服务对象 |
 |---|---|---|---|
-| `🇨🇴 运营01` | Decodo `23.27.43.108` | → `🇺🇸 CN2GIA快线` | 运营设备（10.1.2.33）的全部社媒 |
-| `🇨🇴 运营02` | Decodo `23.27.41.10` | → `🇺🇸 CN2GIA快线` | 预留给第二台运营设备 |
-| `🇨🇴 运营03` | Decodo `136.0.47.9` | → `🇺🇸 CN2GIA快线` | 备用 / 故障切换 |
+| `🇨🇴 运营01` | Decodo `<CO-EXIT-01>` | → `🇺🇸 CN2GIA快线` | 运营设备（10.1.2.33）的全部社媒 |
+| `🇨🇴 运营02` | Decodo `<CO-EXIT-02>` | → `🇺🇸 CN2GIA快线` | 预留给第二台运营设备 |
+| `🇨🇴 运营03` | Decodo `<CO-EXIT-03>` | → `🇺🇸 CN2GIA快线` | 备用 / 故障切换 |
 | `🇺🇸 CN2GIA` | JMS c55s3 · 洛杉矶 167ms | — | 桥接主力，美国服务首选 |
 | `🇯🇵 日本` | JMS c55s4 · 大阪 **65ms** | — | 入口延迟最低，桥接降级目标 |
 | `🇺🇸 直连备用` | JMS c55s2 · 洛杉矶 168ms | — | 故障顶替 |
@@ -90,7 +90,7 @@ Decodo 三个 IP 的 ASN 都是 AS14080 Telmex Colombia、实体在波哥大，
 - 精细库（微博 / B站 / 抖音 / 微信）跟踪 BGP + ASN → 判哥伦比亚 ✅
 - 粗粒度库（小红书）按 RIR 分配判定 → ARIN = 北美 = 美国 ❌
 
-三个 IP 全试过，包括不同 /8 的 `136.0.47.9`，结果一致。
+三个 IP 全试过，包括不同 /8 的 `<CO-EXIT-03>`，结果一致。
 **要根治只能换 LACNIC 注册的段（190/191/200/201 开头）。**
 详见 [`troubleshooting.md` §7](../docs/troubleshooting.md)。
 
@@ -253,13 +253,13 @@ done
 ```bash
 curl --proxy "socks5h://<凭证>@<入口>" \
      "https://api.bilibili.com/x/web-interface/zone"
-# {"addr":"185.177.78.55","country":"美国","province":"佛罗里达州","city":"迈阿密"}
+# {"addr":"<BD-OLD-01>","country":"美国","province":"佛罗里达州","city":"迈阿密"}
 ```
 
 B 站接口是最实用的探针，**换 IP 前先跑这条**——几秒验证一个段，
 比买完再发评论试错快得多。
 
-> ⚠️ B 站判对**不代表全部平台判对**。2026-08-17 实测 Decodo 的 `23.27.43.108`：
+> ⚠️ B 站判对**不代表全部平台判对**。2026-08-17 实测 Decodo 的 `<CO-EXIT-01>`：
 > B站/微博/抖音/微信全判哥伦比亚，唯独小红书判美国。国内库的精细度不一致，
 > 最保守的做法是把每个目标平台都实测一遍。
 
@@ -270,7 +270,7 @@ Decodo 的 IP ASN 就是 AS14080 Telmex Colombia、实体在波哥大，
 但段注册在 ARIN（北美），粗粒度库直接判成美国。
 
 ```bash
-whois 23.27.43.108 | grep -iE "^(source|organisation|NetRange):"
+whois <CO-EXIT-01> | grep -iE "^(source|organisation|NetRange):"
 # organisation: ARIN        ← 北美注册，粗粒度库会判成美国
 whois 190.85.0.1  | grep -iE "^(source|organisation|inetnum):"
 # organisation: LACNIC      ← 拉美注册，所有库都判对

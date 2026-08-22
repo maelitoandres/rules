@@ -128,7 +128,7 @@ custom_proxy_group=🐟 漏网之鱼`select`[]🇺🇸 冲浪快线`[]DIRECT
 
 ### Bright Data（$35/月固定，非按量）
 
-| | `185.177.78.55` | `185.177.78.116` |
+| | `<BD-OLD-01>` | `<BD-OLD-02>` |
 |---|---|---|
 | 命名 | `🇨🇴 社媒` | `🇨🇴 加密` |
 | 城市 / ISP | Bogotá / WS Telecom Inc | 同左 |
@@ -275,10 +275,10 @@ dialer-proxy   保留        ✅
 ```yaml
 proxies:
   - {name: 🇨🇴 社媒, server: brd.superproxy.io, port: 22228, type: socks5,
-     username: <...-ip-185.177.78.55>, password: <...>, udp: true,
+     username: <...-ip-<BD-OLD-01>>, password: <...>, udp: true,
      dialer-proxy: "🇺🇸 快线"}
   - {name: 🇨🇴 加密, server: brd.superproxy.io, port: 22228, type: socks5,
-     username: <...-ip-185.177.78.116>, password: <...>, udp: true,
+     username: <...-ip-<BD-OLD-02>>, password: <...>, udp: true,
      dialer-proxy: "🇺🇸 快线"}
 ```
 
