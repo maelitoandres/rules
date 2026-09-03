@@ -38,3 +38,4 @@ payload:
 #     直连，不会因为一个通用 SDK 把无关流量拽进运营出口。
   - DOMAIN-KEYWORD,fengkongcloud #数美风控 兜住 .localdomain 变形
   - DOMAIN-SUFFIX,mercadolibre.com.co
+  - DOMAIN-SUFFIX,mercadolibre.com
