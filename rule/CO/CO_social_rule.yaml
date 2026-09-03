@@ -37,3 +37,4 @@ payload:
 #     的 AND 规则覆盖 —— 只对 10.1.2.33 / 10.1.2.34 生效，同网段其他设备照常
 #     直连，不会因为一个通用 SDK 把无关流量拽进运营出口。
   - DOMAIN-KEYWORD,fengkongcloud #数美风控 兜住 .localdomain 变形
+  - DOMAIN-SUFFIX,mercadolibre.com.co
