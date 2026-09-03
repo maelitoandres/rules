@@ -37,4 +37,3 @@ payload:
 #   小红书 API/发布/埋点在 xiaohongshu.com(edith/as/spider-tracker),不在此文件,
 #   仍走运营出口保属地。
   - DOMAIN-SUFFIX,xhscdn.com
-  - DOMAIN-SUFFIX,mercadolibre.com.co
