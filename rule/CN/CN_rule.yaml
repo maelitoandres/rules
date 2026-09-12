@@ -27,9 +27,10 @@ payload:
   - DOMAIN-SUFFIX,sino56.com
   - DOMAIN-SUFFIX,pingpongx.com #PingPong跨境支付
 
-#系统
+#NAS
   - DOMAIN-SUFFIX,synology.com #群晖
   - DOMAIN-SUFFIX,quickconnect.cn #群晖
+  - DOMAIN-SUFFIX,quickconnect.to
 
 #企业查询
   - DOMAIN-SUFFIX,qcc.com #企查查
